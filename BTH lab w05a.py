@@ -15,7 +15,7 @@ class DeviceStatus(Enum):
 class Device(ABC):
     def __init__(self, id: str, name: str, yearInUse: int, purchasePrice: float, status: DeviceStatus):
         if not id or not id.strip():
-            raise ValueError("Mã thiết bị không được rỗng"):
+            raise ValueError("Mã thiết bị không được rỗng")
         if purchasePrice <= 0:
             raise ValueError("Giá mua phải lớn hơn 0")
         
@@ -69,7 +69,7 @@ class INetworkable(ABC):
         pass
 
     @abstractmethod
-    def Connect(self, IpAddress: str)
+    def Connect(self, IpAddress: str):
         pass
 
     @abstractmethod
@@ -109,8 +109,147 @@ class Computer(Device, INetworkable):
     def IpAddress(self) -> str:
         return self._IpAddress
 
-    def Connect(self, IpAddress : str)
-        
+    def Connect(self, IpAddress : str):
+        if not IpAddress or not IpAddress.strip():
+            raise ValueError("Địa chỉ IP không được rỗng")
+
+        if self.IsConnected:
+            raise Exception("Không cho phép kết nối lại khi thiết bị đang kết nối.")
+
+        self._IpAddress = IpAddress
+        self._IsConnected = True
 
 
+    def Disconnect(self):
+        self._IsConnected = False
+        self._IpAddress = None
 
+    @property
+    def IsConnected(self) -> bool:
+        return self._IsConnected
+
+# PRINTER
+class Printer(Device):
+    def __init__(self, id: str, name: str, yearInUse: int, purchasePrice: float, status: DeviceStatus,
+                 printerType: str, pagePrinted: int, hasColor: bool):
+        super().__init__(id, name, yearInUse, purchasePrice, status)
+        self.printerType = printerType
+        self.pagePrinted = pagePrinted
+        self.hasColor = hasColor
+
+    # Tính chi phí bảo trì
+    def estimatedAnnualMaintenanceCosts(self) -> float:
+            cost = self.purchasePrice * 0.04
+    
+            if self.pagePrinted > 100000:
+                cost += 500000
+
+            if self.hasColor:
+                cost += 300000
+            return cost
+
+# PHƯƠNG ÁN: Mô hình mọi máy in đều có khả năng mạng -> printer chỉ thực thi INetworkable
+class NetworkPrinter(Printer, INetworkable):
+    def __inti__(self, id: str, name: str, yearInUse: int, purchasePrice: float, status: DeviceStatus,
+                 printerType: str, pagePrinted: int, hasColor: bool):
+        super().__init__(id, name, yearInUse, purchasePrice, status, printerType, pagePrinted, hasColor)
+        self._IpAddress = None
+        self._IsConnected = False
+
+    @property
+    def IpAddress(self) -> str:
+        return self._IpAddress
+    
+    def Connect(self, IpAddress : str):
+        if not IpAddress or not IpAddress.strip():
+            raise ValueError("Địa chỉ IP không được rỗng")
+    
+        if self.IsConnected:
+            raise Exception("Không cho phép kết nối lại khi thiết bị đang kết nối.")
+    
+        self._IpAddress = IpAddress
+        self._IsConnected = True
+    
+    
+    def Disconnect(self):
+        self._IsConnected = False
+        self._IpAddress = None
+    
+    @property
+    def IsConnected(self) -> bool:
+        return self._IsConnected
+
+# PROJECTOR
+class Projector(Device):
+    def __init__(self, id: str, name: str, yearInUse: int, purchasePrice: float, status: DeviceStatus,
+                 brightNessLumen: int, bulbHoursUsed: int):
+        super().__init__(id, name, yearInUse, purchasePrice, status)
+        self.brightNessLumen = brightNessLumen
+        self.bulbHoursUsed = bulbHoursUsed
+
+# Tính chi phí bảo trì
+    def estimatedAnnualMaintenanceCosts(self) -> float:
+            cost = self.purchasePrice * 0.03
+    
+            if self.bulbHoursUsed > 3000:
+                cost += 1500000
+
+            return cost
+
+
+# KẾT TẬP
+# LABROOM
+class LabRoom:
+    def __init__(self, roomId: str, roomName: str, capacity: int):
+        self.roomId = roomId
+        self.roomName = roomName
+        self.capacity = capacity
+        self.devices: list[Device] = []
+
+    # Thêm Thiết bị
+    def AddDevice(self, device: Device):
+        if device is None:
+            raise ValueError("Không chấp nhận đối tượng thiết bị Null")
+
+        for dv in self.devices:
+            if dv.id == device.id:
+                raise ValueError("Không thêm hai thiết bị có cùng mã vào một phòng")
+
+        self.devices.append(device)
+
+    # Tìm thiết bị
+    def FindDevice(self, id: str) -> Device | None:
+        for dv in self.devices:
+            if dv.id == id:
+                return dv
+
+        return None
+
+    # xoa thiết bị
+    def RemoveDevice(self, id: str) -> bool:
+        device = self.FindDevice(id)
+        if device:
+            self.devices.remove(device)
+            return True
+        return False
+
+    # Sử dụng tính đa hình
+    def estimatedAnnualMaintenanceCosts(self) -> float:
+        totalCost = 0.0
+        for dv in self.devices:
+            totalCost += d.estimatedAnnualMaintenanceCosts()
+        return totalCost
+
+    def GetDevicesRequiringMaintenance(self) -> list[Device]:
+        result = []
+
+        for dv in self.devices:
+            age = datetime.datetime.now().year - d._yearInUse
+            if dv.status == DeviceStatus.UNDER_MAINTENANCE or age > 5:
+                result.append(dv)
+        return result
+
+
+# KIỂM THỬ
+__name__ == "__main__":
+   
