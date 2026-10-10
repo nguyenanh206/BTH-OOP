@@ -251,5 +251,73 @@ class LabRoom:
 
 
 # KIỂM THỬ
-__name__ == "__main__":
+if __name__ == "__main__":
+
+#Khởi tạo 2 máy tính, 1 máy có GPU rời
+    computer1 = Computer("PC01", "Hp ZBook", 2025, 25000000, DeviceStatus.ACTIVE, 32, "Intel Core i7", True)
+    computer2 = Computer("PC02", "Hp", 2020, 15000000, DeviceStatus.ACTIVE, 16, "Intel Core i5", False)
+
+# Khởi tạo 2 máy in (một máy in > 100.000 trang, hỗ trợ mạng dùng NetworkPrinter)
+    printer1 = Printer("PR01", "Canon LBP2900", 2015, 4000000, DeviceStatus.ACTIVE, "laser", 50000, False)
+    printer2 = NetworkPrinter("PR02", "Canon Color Printer", 2021, 6000000, DeviceStatus.UNDER_MAINTENANCE, "laser", 120000, True)
+
+# Khởi tạo 1  máy chiếu bóng đèn sử dụng > 3.000 giờ
+    projector1 = Projector("PJ01", "Sony Projector", 2020, 12000000, DeviceStatus.ACTIVE, 3500, 3500)
+
+#Khởi tạo 2 phòng thực hành
+    roomA = LabRoom("P101", "Lab OOP", 30)
+    roomB = LabRoom("P102", "Lab DTB", 25)
+
+# 1. Thêm thiết bị vào phòng
+    print("\n--- 1. Thêm thiết bị vào phòng ---")
+    roomA.AddDeviceevice(computer1)
+    roomA.AddDeviceevice(computer2)
+    roomA.AddDeviceevice(printer1)
+    roomB.AddDeviceevice(printer2)
+    roomB.AddDeviceevice(projector1)
+    print("Thêm thiết bị thành công!")
+
+# 2. Thử thêm một thiết bị bị trùng mã
+    print("\n--- 2. Kiểm tra thêm thiết bị trùng mã ---")
+    try:
+        roomA.AddDeviceevice(Computer("PC01", "Duplicate PC", 2025, 10000000, DeviceStatus.ACTIVE, 8, "Intel i3", False))
+    except ValueError as e:
+        print(f"Lỗi bắt được: {e}")
+
+# 3. In danh sách thiết bị trong từng phòng
+    print("\n--- 3. Danh sách thiết bị trong phòng P101 ---")
+    for dv in roomA.devices:
+        print(dv)
+
+    print("\nDanh sách thiết bị trong phòng P102 ---")
+    for dv in roomB.devices:
+        print(dv)
+
+# 4. Tính tổng chi phí bảo trì dự kiến của mỗi phòng
+    print(f"\n--- 4. Tổng chi phí bảo trì ---")
+    print(f"Phòng P101: {roomA.estimatedAnnualMaintenanceCosts():,.0f} VNĐ")
+    print(f"Phòng P102: {roomB.estimatedAnnualMaintenanceCosts():,.0f} VNĐ")
+
+# 5. Liệt kê thiết bị cần bảo trì
+    print("\n--- 5. Thiết bị cần bảo trì (P101) ---")
+    for dv in roomA.GetDevicesRequiringMaintenance():
+        print(f"- {dv._name} (Mã: {dv._id}, Trạng thái: {dv._status.name})")
+
+    print("Thiết bị cần bảo trì (P102):")
+    for dv in roomB.get_devices_requiring_maintenance():
+        print(f"- {dv._name} (Mã: {dv._id}, Trạng thái: {dv._status.name})")
+
+    # 6 & 7. Kết nối mạng cho các đối tượng thực thi INetworkable và duyệt thông qua interface
+    print("\n--- 6 & 7. Kiểm tra kết nối mạng qua INetworkable ---")
+    networkDevices = [computer1, computer2, printer2]  # Các đối tượng thực thi INetworkable
+
+    for index, dv in enumerate(networkDevices, start=1):
+        ip = f"192.168.1.{10 + index}"
+        dv.connect(ip)
+        print(f"Thiết bị {dv.name} kết nối thành công với IP: {dv.IpAddress} (Trạng thái kết nối: {dv.IsConnected})")
+
+    # Kiểm tra ngắt kết nối
+    print("\nThực hiện ngắt kết nối cho máy tính PC01:")
+    computer1.Disconnect()
+    print(f"PC01 IsConnected: {computer1.IsConnected}, IP: {computer1.IpAddress}")
    
