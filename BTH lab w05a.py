@@ -29,36 +29,36 @@ class Device(ABC):
         self._purchasePrice = purchasePrice
         self._status = status
 
-        @property
-        def id(self) -> str:
-            return self._id
+    @property
+    def id(self) -> str:
+        return self._id
 
-        @property
-        def name(self) -> str:
-            return self._name
+    @property
+    def name(self) -> str:
+        return self._name
 
-        @property
-        def yearInUse(self) -> int:
-            return self._yearInUse
+    @property
+    def yearInUse(self) -> int:
+        return self._yearInUse
 
-        @property
-        def purchasePrice(self) -> float:
-            return self._purchasePrice
-        @property
-        def status(self) -> DeviceStatus:
-            return self._status
+    @property
+    def purchasePrice(self) -> float:
+        return self._purchasePrice
+    @property
+    def status(self) -> DeviceStatus:
+        return self._status
 
-        # Phương thức trừu tượng tính chi phí bảo trì dự kiến trong một năm.
-        @abstractmethod
-        def estimatedAnnualMaintenanceCosts(selff) -> float:
-            pass
+# Phương thức trừu tượng tính chi phí bảo trì dự kiến trong một năm.
+    @abstractmethod
+    def CalculateAnnualMaintenanceCost(self) -> float:
+        pass
 
-        def __str__(self) -> str:
-            currentYear = datetime.datetime.now().year
-            age = currentYear - self._yearInUse
-            return{f"Mã thiết bị: {self._id} | Tên thiết bị: {self._name} | "
-                   f"Năm đưa vào sử dụng: {self._yearInUse} | "
-                   f"Giá mua: {self._purchasePrice: ,.0f} | Trạng thái: {self._status.name}"}
+    def __str__(self) -> str:
+        currentYear = datetime.datetime.now().year
+        age = currentYear - self._yearInUse
+        return (f"Mã thiết bị: {self._id} | Tên thiết bị: {self._name} | "
+                f"Năm đưa vào sử dụng: {self._yearInUse} | "
+                f"Giá mua: {self._purchasePrice: ,.0f} | Trạng thái: {self._status.name}")
 
 
 # INTERFACE
@@ -96,7 +96,7 @@ class Computer(Device, INetworkable):
         self._IsConnected = False
 
     # Tính chi phí bảo trì
-    def estimatedAnnualMaintenanceCosts(self) -> float:
+    def CalculateAnnualMaintenanceCost(self) -> float:
         cost = self.purchasePrice * 0.05
         if self.hasDiscreteGPU:
             cost += self.purchasePrice * 0.02
@@ -138,7 +138,7 @@ class Printer(Device):
         self.hasColor = hasColor
 
     # Tính chi phí bảo trì
-    def estimatedAnnualMaintenanceCosts(self) -> float:
+    def CalculateAnnualMaintenanceCost(self) -> float:
             cost = self.purchasePrice * 0.04
     
             if self.pagePrinted > 100000:
@@ -150,7 +150,7 @@ class Printer(Device):
 
 # PHƯƠNG ÁN: Mô hình mọi máy in đều có khả năng mạng -> printer chỉ thực thi INetworkable
 class NetworkPrinter(Printer, INetworkable):
-    def __inti__(self, id: str, name: str, yearInUse: int, purchasePrice: float, status: DeviceStatus,
+    def __init__(self, id: str, name: str, yearInUse: int, purchasePrice: float, status: DeviceStatus,
                  printerType: str, pagePrinted: int, hasColor: bool):
         super().__init__(id, name, yearInUse, purchasePrice, status, printerType, pagePrinted, hasColor)
         self._IpAddress = None
@@ -188,7 +188,7 @@ class Projector(Device):
         self.bulbHoursUsed = bulbHoursUsed
 
 # Tính chi phí bảo trì
-    def estimatedAnnualMaintenanceCosts(self) -> float:
+    def CalculateAnnualMaintenanceCost(self) -> float:
             cost = self.purchasePrice * 0.03
     
             if self.bulbHoursUsed > 3000:
@@ -234,17 +234,17 @@ class LabRoom:
         return False
 
     # Sử dụng tính đa hình
-    def estimatedAnnualMaintenanceCosts(self) -> float:
+    def CalculateAnnualMaintenanceCost(self) -> float:
         totalCost = 0.0
         for dv in self.devices:
-            totalCost += d.estimatedAnnualMaintenanceCosts()
+            totalCost += dv.CalculateAnnualMaintenanceCost()
         return totalCost
 
     def GetDevicesRequiringMaintenance(self) -> list[Device]:
         result = []
 
         for dv in self.devices:
-            age = datetime.datetime.now().year - d._yearInUse
+            age = datetime.datetime.now().year - dv._yearInUse
             if dv.status == DeviceStatus.UNDER_MAINTENANCE or age > 5:
                 result.append(dv)
         return result
@@ -255,9 +255,9 @@ if __name__ == "__main__":
 
 #Khởi tạo 2 máy tính, 1 máy có GPU rời
     computer1 = Computer("PC01", "Hp ZBook", 2025, 25000000, DeviceStatus.ACTIVE, 32, "Intel Core i7", True)
-    computer2 = Computer("PC02", "Hp", 2020, 15000000, DeviceStatus.ACTIVE, 16, "Intel Core i5", False)
+    computer2 = Computer("PC02", "Hp 14", 2020, 15000000, DeviceStatus.ACTIVE, 16, "Intel Core i5", False)
 
-# Khởi tạo 2 máy in (một máy in > 100.000 trang, hỗ trợ mạng dùng NetworkPrinter)
+# Khởi tạo 2 máy in (một máy đã in > 100.000 trang)
     printer1 = Printer("PR01", "Canon LBP2900", 2015, 4000000, DeviceStatus.ACTIVE, "laser", 50000, False)
     printer2 = NetworkPrinter("PR02", "Canon Color Printer", 2021, 6000000, DeviceStatus.UNDER_MAINTENANCE, "laser", 120000, True)
 
@@ -270,19 +270,19 @@ if __name__ == "__main__":
 
 # 1. Thêm thiết bị vào phòng
     print("\n--- 1. Thêm thiết bị vào phòng ---")
-    roomA.AddDeviceevice(computer1)
-    roomA.AddDeviceevice(computer2)
-    roomA.AddDeviceevice(printer1)
-    roomB.AddDeviceevice(printer2)
-    roomB.AddDeviceevice(projector1)
+    roomA.AddDevice(computer1)
+    roomA.AddDevice(computer2)
+    roomA.AddDevice(printer1)
+    roomB.AddDevice(printer2)
+    roomB.AddDevice(projector1)
     print("Thêm thiết bị thành công!")
 
 # 2. Thử thêm một thiết bị bị trùng mã
     print("\n--- 2. Kiểm tra thêm thiết bị trùng mã ---")
     try:
-        roomA.AddDeviceevice(Computer("PC01", "Duplicate PC", 2025, 10000000, DeviceStatus.ACTIVE, 8, "Intel i3", False))
+        roomA.AddDevice(Computer("PC01", "Duplicate PC", 2025, 10000000, DeviceStatus.ACTIVE, 16, "Intel i5", False))
     except ValueError as e:
-        print(f"Lỗi bắt được: {e}")
+        print(f"Lỗi: {e}")
 
 # 3. In danh sách thiết bị trong từng phòng
     print("\n--- 3. Danh sách thiết bị trong phòng P101 ---")
@@ -294,9 +294,9 @@ if __name__ == "__main__":
         print(dv)
 
 # 4. Tính tổng chi phí bảo trì dự kiến của mỗi phòng
-    print(f"\n--- 4. Tổng chi phí bảo trì ---")
-    print(f"Phòng P101: {roomA.estimatedAnnualMaintenanceCosts():,.0f} VNĐ")
-    print(f"Phòng P102: {roomB.estimatedAnnualMaintenanceCosts():,.0f} VNĐ")
+    print(f"\n--- 4. Tổng chi phí bảo trì dự kiến ---")
+    print(f"Phòng P101: {roomA.CalculateAnnualMaintenanceCost():,.0f} VNĐ")
+    print(f"Phòng P102: {roomB.CalculateAnnualMaintenanceCost():,.0f} VNĐ")
 
 # 5. Liệt kê thiết bị cần bảo trì
     print("\n--- 5. Thiết bị cần bảo trì (P101) ---")
@@ -304,19 +304,19 @@ if __name__ == "__main__":
         print(f"- {dv._name} (Mã: {dv._id}, Trạng thái: {dv._status.name})")
 
     print("Thiết bị cần bảo trì (P102):")
-    for dv in roomB.get_devices_requiring_maintenance():
+    for dv in roomB.GetDevicesRequiringMaintenance():
         print(f"- {dv._name} (Mã: {dv._id}, Trạng thái: {dv._status.name})")
 
-    # 6 & 7. Kết nối mạng cho các đối tượng thực thi INetworkable và duyệt thông qua interface
+# 6 & 7. Kết nối mạng cho các đối tượng thực thi INetworkable 
     print("\n--- 6 & 7. Kiểm tra kết nối mạng qua INetworkable ---")
-    networkDevices = [computer1, computer2, printer2]  # Các đối tượng thực thi INetworkable
+    networkDevices = [computer1, computer2, printer2]  
 
     for index, dv in enumerate(networkDevices, start=1):
         ip = f"192.168.1.{10 + index}"
-        dv.connect(ip)
+        dv.Connect(ip)
         print(f"Thiết bị {dv.name} kết nối thành công với IP: {dv.IpAddress} (Trạng thái kết nối: {dv.IsConnected})")
 
-    # Kiểm tra ngắt kết nối
+# Kiểm tra ngắt kết nối
     print("\nThực hiện ngắt kết nối cho máy tính PC01:")
     computer1.Disconnect()
     print(f"PC01 IsConnected: {computer1.IsConnected}, IP: {computer1.IpAddress}")
