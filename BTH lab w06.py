@@ -7,9 +7,9 @@ import datetime
 
 # Enum cho trạng thái thiết bị
 class DeviceStatus(Enum):
-    Available = 1
-    Borrowed = 2
-    UnderMaintenance = 3
+    AVAILABLE = 1
+    BORROWED = 2
+    UNDERMAINTANCE = 3
 
 
 #---------------------------
@@ -38,31 +38,31 @@ class BorrowLimitExceededException(BorrowingException):
         self.borrowerId = borrowerId
         self.maximumDevices = maximumDevices
 
+#Phát sinh khi thời hạn/số ngày mượn không hợp lệ
 class InvalidBorrowPeriodException(BorrowingException):
-    """Phát sinh khi thời hạn/số ngày mượn không hợp lệ[cite: 10]."""
-    def __init__(self, device_id: str, requested_days: int, max_days: int):
-        super().__init__(f"Số ngày mượn {requested_days} không hợp lệ hoặc vượt quá giới hạn tối đa {max_days} của thiết bị {device_id}[cite: 10].")
-        self.device_id = device_id
-        self.requested_days = requested_days
-        self.max_days = max_days
+    def __init__(self, id: str, requestedDays: int, maxDays: int):
+        super().__init__(f"Số ngày mượn {requestedDays} không hợp lệ hoặc vượt quá giới hạn tối đa {maxDays} của thiết bị {id}.")
+        self.id = id
+        self.requestedDays = requestedDays
+        self.maxDays = maxDays
 
+#Phát sinh khi cùng một thiết bị đã tồn tại trong phiếu
 class DuplicateDeviceException(BorrowingException):
-    """Phát sinh khi cùng một thiết bị đã tồn tại trong phiếu[cite: 10]."""
-    def __init__(self, device_id: str):
-        super().__init__(f"Thiết bị {device_id} đã tồn tại trong phiếu mượn[cite: 10].")
-        self.device_id = device_id
+    def __init__(self, id: str):
+        super().__init__(f"Thiết bị {id} đã tồn tại trong phiếu mượn.")
+        self.id = id
 
+#Phát sinh khi yêu cầu trả một thiết bị không thuộc phiếu
 class DeviceNotInSlipException(BorrowingException):
-    """Phát sinh khi yêu cầu trả một thiết bị không thuộc phiếu[cite: 10]."""
-    def __init__(self, device_id: str):
-        super().__init__(f"Thiết bị {device_id} không thuộc phiếu mượn này[cite: 10].")
-        self.device_id = device_id
+    def __init__(self, id: str):
+        super().__init__(f"Thiết bị {id} không thuộc phiếu mượn này.")
+        self.id = id
 
+#Phát sinh khi thiết bị trong phiếu đã được trả trước đó
 class DeviceAlreadyReturnedException(BorrowingException):
-    """Phát sinh khi thiết bị trong phiếu đã được trả trước đó[cite: 10]."""
-    def __init__(self, device_id: str):
-        super().__init__(f"Thiết bị {device_id} đã được trả trước đó[cite: 10].")
-        self.device_id = device_id      
+    def __init__(self, id: str):
+        super().__init__(f"Thiết bị {id} đã được trả trước đó.")
+        self.id = id      
 
 #---------------------------
 # Lớp trừu tượng 
@@ -129,7 +129,7 @@ class Device(ABC):
 #-----------------------------
 
 # AIR CONDITIONER REMOTE CONTROL
-class AirConditonerRemote(Device):
+class AirConditionerRemote(Device):
     def __init__(self, id: str, name: str, yearInUse: int, purchasePrice: float, status: DeviceStatus, maxBorrowDays: int):
         super().__init__(id, name, yearInUse, purchasePrice, status, maxBorrowDays)
         
@@ -276,7 +276,8 @@ class BorrowItem:
         self._dueDate = dueDate
         self._fromPeriod = fromPeriod
         self._toPeriod = toPeriod
-        self. borrower: IBorrower, _ReturnedDate = None
+        self. borrower: IBorrower 
+        self._ReturnedDate = None
         self._IsReturned = False
 
     @property
@@ -299,13 +300,13 @@ class BorrowItem:
     def IsReturned(self) -> bool:
         return self._IsReturned
 
-    def Return(self, returnedDate: datetime.datetime):
+    def Return(self, ReturnedDate: datetime.datetime):
         if self._IsReturned:
             raise DeviceAlreadyReturnedException(self._device.Id)
-        if returned_date < self._borrowed_date:
+        if ReturnedDate < self._borrowed_date:
             raise BorrowingException("Ngày trả không được trước ngày mượn[cite: 8].")
         
-        self._returnedDate = returnedDate
+        self._ReturnedDate = ReturnedDate
         self._IsReturned = True
 
 # BORROWINGSLIP
@@ -386,3 +387,88 @@ class BorrowingSlip:
         return targetItem.calculate_late_fee()
     def calculate_total_late_fee(self) -> float:
         return sum(item.calculate_late_fee() for item in self._items if item.is_returned)
+
+
+if __name__ == "__main__":
+    print("=== BẮT ĐẦU KIỂM THỬ HỆ THỐNG MƯỢN THIẾT BỊ ===")
+    today = datetime.datetime.now()
+
+    # Khởi tạo dữ liệu
+    lecturer = Lecturer("GV01", "Dr. Nguyen Van A")
+    ta = TA = TeachingAssistant("TA01", "Tran Thi B")
+
+    acRemote = AirConditionerRemote("AC01", "Điều hòa Panasonic Remote", 2023, 500000, DeviceStatus.AVAILABLE)
+    mic = Micro("MIC01", "Micro không dây Sony", 2022, 1200000, DeviceStatus.AVAILABLE)
+    projectorRemote = ProjectorRemote("PRJ01", "Máy chiếu Epson Remote", 2021, 800000, DeviceStatus.AVAILABLE)
+    brokenAc = AirConditionerRemote("AC02", "Điều hòa Daikin hỏng", 2020, 500000, DeviceStatus.UNDER_MAINTENANCE)
+
+    # 1. Luồng thành công
+    print("\n--- 1. Kiểm thử luồng thành công ---")
+    try:
+        slip = BorrowingSlip("SLIP01", lecturer, "Phòng P101", today)
+        slip.AddDevice(projectorRemote, borrowDays=3)
+        slip.AddDevice(mic, borrowDays=1)
+        print(f"Tạo phiếu mượn thành công cho {lecturer.fullName} với {len(slip.items)} thiết bị.")
+
+        # Trả máy chiếu đúng hạn
+        fee1 = slip.ReturnDevice("PRJ01", today)
+        print(f"Đã trả máy chiếu PRJ01 đúng hạn. Phí trễ: {fee1:,.0f} VNĐ")
+
+        # Trả micro muộn 2 ngày
+        lateDate = today + datetime.timedelta(days=3)
+        fee2 = slip.ReturnDevice("MIC01", lateDate)
+        print(f"Đã trả micro MIC01 muộn 2 ngày. Phí trễ: {fee2:,.0f} VNĐ")
+    except BorrowingException as e:
+        print(f"Lỗi nghiệp vụ: {e}")
+
+    # 2. Luồng phát sinh ngoại lệ
+    print("\n--- 2. Kiểm thử các tình huống ngoại lệ ---")
+    
+    # Tình huống 1: Mượn điều hòa đang UnderMaintenance
+    print("\n[Test 1] Mượn thiết bị đang bảo trì:")
+    try:
+        slip2 = BorrowingSlip("SLIP02", lecturer, "Phòng P102", today)
+        slip2.add_device(brokenAc, borrowDays=2)
+    except DeviceUnavailableException as e:
+        print(f"Bắt ngoại lệ thành công: {e}")
+
+    # Tình huống 2: Trợ giảng mượn thiết bị thứ 3 (vượt giới hạn 2 thiết bị của TA)
+    print("\n[Test 2] Trợ giảng mượn vượt quá giới hạn:")
+    try:
+        slip3 = BorrowingSlip("SLIP03", ta, "Phòng P103", today)
+        d1 = AirConditionerRemote("AC10", "Remote 1", 2023, 100000, DeviceStatus.AVAILABLE)
+        d2 = AirConditionerRemote("AC11", "Remote 2", 2023, 100000, DeviceStatus.AVAILABLE)
+        d3 = AirConditionerRemote("AC12", "Remote 3", 2023, 100000, DeviceStatus.AVAILABLE)
+        
+        slip3.AddDevice(d1, 1)
+        slip3.AddDevice(d2, 1)
+        slip3.AddDevice(d3, 1)  # Sẽ ném ngoại lệ BorrowLimitExceededException
+    except BorrowLimitExceededException as e:
+        print(f"Bắt ngoại lệ thành công: {e}")
+
+    # Tình huống 3: Thêm cùng một micro hai lần
+    print("\n[Test 3] Thêm trùng thiết bị vào phiếu:")
+    try:
+        slip4 = BorrowingSlip("SLIP04", lecturer, "Phòng P104", today)
+        slip4.AddDevice(mic, 1)
+        slip4.AddDevice(mic, 1)  # Sẽ ném ngoại lệ DuplicateDeviceException
+    except DuplicateDeviceException as e:
+        print(f"Bắt ngoại lệ thành công: {e}")
+
+    # Tình huống 4: Mượn micro quá giới hạn số ngày cho phép (Micro tối đa 1 ngày)
+    print("\n[Test 4] Mượn quá thời hạn cho phép của thiết bị:")
+    try:
+        slip5 = BorrowingSlip("SLIP05", lecturer, "Phòng P105", today)
+        slip5.AddDevice(mic, borrow_days=3)
+    except InvalidBorrowPeriodException as e:
+        print(f"Bắt ngoại lệ thành công: {e}")
+
+    # Tình huống 5: Trả thiết bị không thuộc phiếu
+    print("\n[Test 5] Trả thiết bị không có trong phiếu:")
+    try:
+        slip6 = BorrowingSlip("SLIP06", lecturer, "Phòng P106", today)
+        slip6.ReturnDevice("AC99", today)
+    except DeviceNotInSlipException as e:
+        print(f"Bắt ngoại lệ thành công: {e}")
+
+    print("\n=== KẾT THÚC KIỂM THỬ ===")
