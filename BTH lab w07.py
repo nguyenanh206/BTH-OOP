@@ -199,61 +199,66 @@ class IRepository(ABC, Generic[T]):
         pass
 
 #Lớp InMemoryRepository<T>
-class InMemoryRepository(IRepository[T]):
+class InMemoryRepository(IRepository[T], Generic[T]):
     def __init__(self):
         self._items: dict[str, T] = {}
  
-    def add(self, item: T) -> None:
+    def add(self, item: T):
         if item is None:
             raise ValueError("Không chấp nhận phần tử null.")
-        if not isinstance(item, IIdentifiable):          # ràng buộc kiểm tra thêm ở thời điểm chạy
-            raise TypeError("Phần tử phải triển khai IIdentifiable.")
         if item.id in self._items:
             raise DuplicateIdException(item.id)
         self._items[item.id] = item
  
-    def remove(self, item_id: str) -> bool:
-        return self._items.pop(item_id, None) is not None
+    def remove(self, itemId: str) -> bool:
+        if itemId in self._items:
+            del self._items[itemId]
+            return True
+        return False
+      
  
-    def find_by_id(self, item_id: str) -> Optional[T]:
-        return self._items.get(item_id)
+    def FindById(self, itemId: str) -> Optional[T]:
+        return self._items.get(itemId)
  
-    def get_all(self) -> list[T]:
-        return list(self._items.values())                # bản sao, không lộ collection nội bộ
+    def GetAll(self) -> List[T]:
+        return List(self._items.values())               
  
-    def find_all(self, condition: Callable[[T], bool]) -> list[T]:
-        return [x for x in self._items.values() if condition(x)]
+    def FindAll(self, condition: Callable[[T], bool]) -> List[T]:
+        return  [item for item in self._items.values() if condition(item)]
 
-# ============================================================
-# 6. CHIẾN LƯỢC LỰA CHỌN (generic + đa hình)
-# ============================================================
+# --------------------------------------------
+# CHIẾN LƯỢC LỰA CHỌN (generic + đa hình)
+# --------------------------------------------
+
+#Interface chiến lược
 class ISelectionStrategy(ABC, Generic[T]):
     @abstractmethod
-    def select(self, candidates: Sequence[T]) -> T: ...
+    def select(self, candidates: List[T]) -> T:
+        pass
  
- 
-class HighestPriorityStrategy(ISelectionStrategy[T]):
-    def __init__(self, score_selector: Callable[[T], float]):
-        if score_selector is None:
+# Các chiến lược bắt buộc 
+class HighestPriorityStrategy(ISelectionStrategy[T], Generic[T]):
+    def __init__(self, scoreSelector: Callable[[T], float]):
+        if scoreSelector is None:
             raise ValueError("score_selector không được null.")
-        self._score_selector = score_selector
+        self._scoreSelector = scoreSelector
  
-    def select(self, candidates: Sequence[T]) -> T:
+    def select(self, candidates: List[T]) -> T:
         if not candidates:
             raise NoSuitableItemException()
-        return max(candidates, key=self._score_selector)   # không sửa danh sách đầu vào
+        return max(candidates, key=self._scoreSelector)  
  
  
-class FirstAvailableStrategy(ISelectionStrategy[T]):
-    def select(self, candidates: Sequence[T]) -> T:
+class FirstAvailableStrategy(ISelectionStrategy[T], Generic[T]):
+    def select(self, candidates: List[T]) -> T:
         if not candidates:
             raise NoSuitableItemException()
         return candidates[0]
  
  
-# ============================================================
-# 7. DỊCH VỤ CẤP PHÁT TỔNG QUÁT
-# ============================================================
+# ------------------------------------------
+# DỊCH VỤ CẤP PHÁT TỔNG QUÁT
+# ------------------------------------------
 D = TypeVar("D", bound=TeachingDevice)     # where T : TeachingDevice
  
  
@@ -264,24 +269,25 @@ class AllocationService(Generic[D]):
         self._repository = repository
         self._strategy = strategy
  
-    def change_strategy(self, new_strategy: ISelectionStrategy[D]) -> None:
-        if new_strategy is None:
+    def ChangeStrategy(self, newStrategy: ISelectionStrategy[D]) -> None:
+        if newStrategy is None:
             raise ValueError("Chiến lược mới không được null.")
-        self._strategy = new_strategy
+        self._strategy = newStrategy
  
-    def allocate(self, additional_condition: Optional[Callable[[D], bool]] = None) -> D:
+    def Allocate(self, additionalCondition: Optional[Callable[[D], bool]] = None) -> D:
         # 1-2. lấy từ repository, chỉ giữ thiết bị sẵn sàng (đa hình qua is_ready_for_use)
-        candidates = self._repository.find_all(lambda d: d.is_ready_for_use())
+        candidates = self._repository.FindAll(lambda d: d.IsReadyForUse())
         # 3. áp dụng điều kiện bổ sung nếu có
-        if additional_condition is not None:
-            candidates = [d for d in candidates if additional_condition(d)]
+        if additionalCondition is not None:
+            candidates = [d for d in candidates if additionalCondition(d)]
         # 4. chọn bằng chiến lược hiện tại (không biết chiến lược cụ thể là gì)
         selected = self._strategy.select(candidates)
         # 5-6. cấp phát: nếu borrow() lỗi thì chưa có gì thay đổi
         selected.borrow()
         return selected
  
- 
+
+'''
 # ============================================================
 # 8. KIỂM THỬ
 # ============================================================
@@ -389,3 +395,4 @@ def main() -> None:
  
 if __name__ == "__main__":
     main()
+'''
