@@ -3,7 +3,6 @@
 
 from abc import ABC, abstractmethod
 from enum import Enum
-import datetime
 from typing import Generic, TypeVar, List, Dict, Callable, Optional, Set
 
 # Enum cho trạng thái thiết bị
@@ -43,12 +42,12 @@ class DeviceNotReadyException(Exception):
 class IIdentifiable(ABC):
     @property
     @abstractmethod
-    def Id(self) -> str:
+    def id(self) -> str:
         pass
 # TEACHING DEVICE
 
 class TeachingDevice(IIdentifiable, ABC):
-    def __init__(self, id: str, name: str, storageLocation: str, status: DeviceStatus.AVAILABLE):
+    def __init__(self, id: str, name: str, storageLocation: str, status: DeviceStatus = DeviceStatus.AVAILABLE):
         if not id or not id.strip():
             raise ValueError("Mã thiết bị không được rỗng")
         if not name or not name.strip():
@@ -86,7 +85,7 @@ class TeachingDevice(IIdentifiable, ABC):
         pass
 
 #Tính điểm ưu tiên của thiết bị 
-    def GetDefaultPrioritygScore(self) -> float:
+    def GetDefaultPriorityScore(self) -> float:
         pass
 
 # Mượn thiết bị
@@ -98,7 +97,8 @@ class TeachingDevice(IIdentifiable, ABC):
 # Trả thiết bị
     def Return(self):
         if self._status != DeviceStatus.BORROWED:
-            raise Exception(f"Thiết bị '{self._id}' không ở trạng thái đang mượn để trả")
+            raise DeviceNotReadyException(self._id, self._status)
+        self._status = DeviceStatus.AVAILABLE
 
     def __str__(self) -> str:
         return (f"[{type(self).__name__}] {self._id} - {self._name} | "
@@ -110,7 +110,7 @@ class TeachingDevice(IIdentifiable, ABC):
 
 # Projector Remote
 class ProjectorRemote(TeachingDevice):
-    def __init__(self, id: str, name: str, storageLocation: str, status: DeviceStatus.AVAILABLE, batteryLevel: int):
+    def __init__(self, id: str, name: str, storageLocation: str, batteryLevel: int, status: DeviceStatus = DeviceStatus.AVAILABLE):
         super().__init__(id, name, storageLocation, status)
         if not (0 <= batteryLevel <= 100):
             raise ValueError("Mức pin phải từ 0 đến 100")
@@ -129,8 +129,8 @@ class ProjectorRemote(TeachingDevice):
 
 # Air Conditioner Remote
 class AirConditionerRemote(TeachingDevice):
-    def __init__(self, id: str, name: str, storageLocation: str,status: DeviceStatus = DeviceStatus.AVAILABLE, compatibleRooms: Set[str]):
-        super().__init__(id, name, status, storageLocation)
+    def __init__(self, id: str, name: str, storageLocation: str, compatibleRooms, status: DeviceStatus = DeviceStatus.AVAILABLE):
+        super().__init__(id, name, storageLocation, status)
         self._compatibleRooms = frozenset(compatibleRooms)
 
     @property
@@ -144,11 +144,11 @@ class AirConditionerRemote(TeachingDevice):
        return self._status == DeviceStatus.AVAILABLE 
     
     def GetDefaultPriorityScore(self) -> float:
-        return 100.0 if self._compatible_rooms else 0.0
+        return 100.0 if self._compatibleRooms else 0.0
     
 # WIRELESS MICROPHONE
 class WirelessMicrophone(TeachingDevice):
-    def __init__(self, id: str, name: str, storageLocation: str, status: DeviceStatus.AVAILABLE, batteryLevel: int, signalQuality: int):
+    def __init__(self, id: str, name: str, storageLocation: str, batteryLevel: int, signalQuality: int, status: DeviceStatus = DeviceStatus.AVAILABLE):
         super().__init__(id, name, storageLocation, status)
         if not (0 <= batteryLevel <= 100):
             raise ValueError("Mức pin phải từ 0 đến 100")
@@ -195,7 +195,7 @@ class IRepository(ABC, Generic[T]):
         pass
  
     @abstractmethod
-    def Findll(self, condition: Callable[[T], bool]) -> List[T]: 
+    def FindAll(self, condition: Callable[[T], bool]) -> List[T]: 
         pass
 
 #Lớp InMemoryRepository<T>
@@ -221,7 +221,7 @@ class InMemoryRepository(IRepository[T], Generic[T]):
         return self._items.get(itemId)
  
     def GetAll(self) -> List[T]:
-        return List(self._items.values())               
+        return list(self._items.values())               
  
     def FindAll(self, condition: Callable[[T], bool]) -> List[T]:
         return  [item for item in self._items.values() if condition(item)]
@@ -275,23 +275,21 @@ class AllocationService(Generic[D]):
         self._strategy = newStrategy
  
     def Allocate(self, additionalCondition: Optional[Callable[[D], bool]] = None) -> D:
-        # 1-2. lấy từ repository, chỉ giữ thiết bị sẵn sàng (đa hình qua is_ready_for_use)
+        # lấy từ repository, chỉ giữ thiết bị sẵn sàng (đa hình qua is_ready_for_use)
         candidates = self._repository.FindAll(lambda d: d.IsReadyForUse())
-        # 3. áp dụng điều kiện bổ sung nếu có
+        # áp dụng điều kiện bổ sung nếu có
         if additionalCondition is not None:
             candidates = [d for d in candidates if additionalCondition(d)]
-        # 4. chọn bằng chiến lược hiện tại (không biết chiến lược cụ thể là gì)
+        # chọn bằng chiến lược hiện tại (không biết chiến lược cụ thể là gì)
         selected = self._strategy.select(candidates)
-        # 5-6. cấp phát: nếu borrow() lỗi thì chưa có gì thay đổi
-        selected.borrow()
+        # cấp phát: nếu borrow() lỗi thì chưa có gì thay đổi
+        selected.Borrow()
         return selected
  
-
-'''
-# ============================================================
-# 8. KIỂM THỬ
-# ============================================================
-def expect_error(title: str, action, exc_type) -> None:
+# ---------------------------------------
+# KIỂM THỬ
+# ---------------------------------------
+def ExpectError(title: str, action, exc_type) -> None:
     try:
         action()
         print(f"   !! {title}: không có ngoại lệ (không mong đợi)")
@@ -299,8 +297,7 @@ def expect_error(title: str, action, exc_type) -> None:
         print(f"   {title}: bắt {type(ex).__name__} -> {ex}")
  
  
-def main() -> None:
-    # --- dữ liệu mẫu ---
+def main():
     p1 = ProjectorRemote("PJ01", "Remote Epson 1", "Kho A", 85)
     p2 = ProjectorRemote("PJ02", "Remote Epson 2", "Kho A", 55)
     p3 = ProjectorRemote("PJ03", "Remote Epson 3", "Kho A", 15)          # pin yếu -> chưa sẵn sàng
@@ -310,89 +307,88 @@ def main() -> None:
     m2 = WirelessMicrophone("MIC02", "Micro Sony", "Kho C", 60, 50)
     m3 = WirelessMicrophone("MIC03", "Micro Boya", "Kho C", 20, 90)      # pin yếu -> chưa sẵn sàng
  
-    projector_repo = InMemoryRepository[ProjectorRemote]()
-    ac_repo = InMemoryRepository[AirConditionerRemote]()
-    mic_repo = InMemoryRepository[WirelessMicrophone]()
+    projectorRepo = InMemoryRepository[ProjectorRemote]()
+    acRepo = InMemoryRepository[AirConditionerRemote]()
+    micRepo = InMemoryRepository[WirelessMicrophone]()
  
     print("1. Thêm thiết bị vào repository")
     for d in (p1, p2, p3):
-        projector_repo.add(d)
+        projectorRepo.add(d)
     for d in (a1, a2):
-        ac_repo.add(d)
+        acRepo.add(d)
     for d in (m2, m1, m3):          # MIC02 (điểm thấp hơn) đứng trước MIC01 để thấy rõ khác biệt giữa hai chiến lược
-        mic_repo.add(d)
-    print(f"   Máy chiếu: {len(projector_repo.get_all())}, điều hòa: {len(ac_repo.get_all())}, "
-          f"micro: {len(mic_repo.get_all())}")
+        micRepo.add(d)
+    print(f"   Máy chiếu: {len(projectorRepo.GetAll())}, điều hòa: {len(acRepo.GetAll())}, "
+          f"micro: {len(micRepo.GetAll())}")
  
     print("\n2. Thêm hai thiết bị trùng mã")
-    expect_error("Thêm lại PJ01",
-                 lambda: projector_repo.add(ProjectorRemote("PJ01", "Trùng", "Kho A", 70)),
+    ExpectError("Thêm lại PJ01",
+                 lambda: projectorRepo.add(ProjectorRemote("PJ01", "Trùng", "Kho A", 70)),
                  DuplicateIdException)
  
     print("\n3. Tìm thiết bị theo mã")
-    print("   MIC02 ->", mic_repo.find_by_id("MIC02"))
-    print("   XXX   ->", mic_repo.find_by_id("XXX"))
+    print("   MIC02 ->", micRepo.FindById("MIC02"))
+    print("   XXX   ->", micRepo.FindById("XXX"))
  
     print("\n4. Lọc các thiết bị sẵn sàng")
-    print("   Micro sẵn sàng:", [d.id for d in mic_repo.find_all(lambda d: d.is_ready_for_use())])
-    print("   Máy chiếu sẵn sàng:", [d.id for d in projector_repo.find_all(lambda d: d.is_ready_for_use())])
+    print("   Micro sẵn sàng:", [d.id for d in micRepo.FindAll(lambda d: d.IsReadyForUse())])
+    print("   Máy chiếu sẵn sàng:", [d.id for d in projectorRepo.FindAll(lambda d: d.IsReadyForUse())])
  
     print("\n5. Chọn điều khiển máy chiếu có điểm cao nhất")
-    projector_service = AllocationService[ProjectorRemote](
-        projector_repo,
-        HighestPriorityStrategy[ProjectorRemote](lambda d: d.get_default_priority_score()))
-    selected = projector_service.allocate(lambda d: True)
+    projectorService = AllocationService[ProjectorRemote](
+        projectorRepo,
+        HighestPriorityStrategy[ProjectorRemote](lambda d: d.GetDefaultPriorityScore()))
+    selected = projectorService.Allocate(lambda d: True)
     print("   Được chọn:", selected)
  
     print("\n6. Chọn điều khiển điều hòa tương thích phòng A203")
-    ac_service = AllocationService[AirConditionerRemote](
-        ac_repo, HighestPriorityStrategy[AirConditionerRemote](lambda d: d.get_default_priority_score()))
-    selected_ac = ac_service.allocate(lambda d: d.is_compatible_with("A203"))
-    print("   Được chọn:", selected_ac)
+    acService = AllocationService[AirConditionerRemote](
+        acRepo, HighestPriorityStrategy[AirConditionerRemote](lambda d: d.GetDefaultPriorityScore()))
+    selectedAc = acService.Allocate(lambda d: d.IsCompatibleWith("A203"))
+    print("   Được chọn:", selectedAc)
  
     print("\n7. Chọn micro đầu tiên sẵn sàng")
-    mic_service = AllocationService[WirelessMicrophone](mic_repo, FirstAvailableStrategy[WirelessMicrophone]())
-    first_mic = mic_service.allocate()
-    print("   Được chọn:", first_mic)
+    micService = AllocationService[WirelessMicrophone](micRepo, FirstAvailableStrategy[WirelessMicrophone]())
+    firstMic = micService.Allocate()
+    print("   Được chọn:", firstMic)
  
     print("\n8. Đổi chiến lược trong thời gian chạy")
-    first_mic.return_device()                                  # trả MIC01 về kho
-    print("   Sau khi trả:", first_mic.status.value)
-    chosen = mic_service.allocate()
-    print("   FirstAvailable  ->", chosen.id, "(đứng đầu danh sách, điểm", chosen.get_default_priority_score(), ")")
-    chosen.return_device()
-    mic_service.change_strategy(HighestPriorityStrategy[WirelessMicrophone](lambda d: d.get_default_priority_score()))
-    chosen = mic_service.allocate()
-    print("   HighestPriority ->", chosen.id, "(điểm cao nhất", chosen.get_default_priority_score(), ")")
+    firstMic.Return()                                  # trả MIC01 về kho
+    print("   Sau khi trả:", firstMic.status.value)
+    chosen = micService.Allocate()
+    print("   FirstAvailable  ->", chosen.id, "(đứng đầu danh sách, điểm", chosen.GetDefaultPriorityScore(), ")")
+    chosen.Return()
+    micService.ChangeStrategy(HighestPriorityStrategy[WirelessMicrophone](lambda d: d.GetDefaultPriorityScore()))
+    chosen = micService.Allocate()
+    print("   HighestPriority ->", chosen.id, "(điểm cao nhất", chosen.GetDefaultPriorityScore(), ")")
  
     print("\n9. Cấp phát khi không có ứng viên phù hợp")
-    expect_error("Điều hòa cho phòng Z999",
-                 lambda: ac_service.allocate(lambda d: d.is_compatible_with("Z999")),
+    ExpectError("Điều hòa cho phòng Z999",
+                 lambda: acService.Allocate(lambda d: d.IsCompatibleWith("Z999")),
                  NoSuitableItemException)
-    mic_service.allocate()                                     # lấy nốt micro còn sẵn sàng cuối cùng
-    expect_error("Micro khi đã hết thiết bị sẵn sàng",
-                 lambda: mic_service.allocate(),
+    micService.Allocate()                                     # lấy nốt micro còn sẵn sàng cuối cùng
+    ExpectError("Micro khi đã hết thiết bị sẵn sàng",
+                 lambda: micService.Allocate(),
                  NoSuitableItemException)
  
     print("\n10. Thiết bị được chọn chuyển sang Borrowed")
-    print(f"   {selected.id}: {selected.status.value} | {selected_ac.id}: {selected_ac.status.value}")
-    expect_error("Mượn lại thiết bị đang Borrowed", selected.borrow, DeviceNotReadyException)
-    expect_error("Trả thiết bị đang Available", p2.return_device, DeviceNotReadyException)
+    print(f"   {selected.id}: {selected.status.value} | {selectedAc.id}: {selectedAc.status.value}")
+    ExpectError("Mượn lại thiết bị đang Borrowed", selected.Borrow, DeviceNotReadyException)
+    ExpectError("Trả thiết bị đang Available", p2.Return, DeviceNotReadyException)
  
     print("\n11. Cùng một lớp InMemoryRepository dùng cho nhiều loại thiết bị")
-    for repo in (projector_repo, ac_repo, mic_repo):
-        print(f"   {type(repo).__name__} chứa: {[d.id for d in repo.get_all()]}")
-    all_devices = InMemoryRepository[TeachingDevice]()           # kho chung cho mọi loại thiết bị
-    for d in projector_repo.get_all() + ac_repo.get_all() + mic_repo.get_all():
-        all_devices.add(d)
-    print("   Kho chung:", [d.id for d in all_devices.get_all()])
+    for repo in (projectorRepo, acRepo, micRepo):
+        print(f"   {type(repo).__name__} chứa: {[d.id for d in repo.GetAll()]}")
+    allDevices = InMemoryRepository[TeachingDevice]()           # kho chung cho mọi loại thiết bị
+    for d in projectorRepo.GetAll() + acRepo.GetAll() + micRepo.GetAll():
+        allDevices.add(d)
+    print("   Kho chung:", [d.id for d in allDevices.GetAll()])
  
     # Kho không lộ collection nội bộ
-    snapshot = projector_repo.get_all()
+    snapshot = projectorRepo.GetAll()
     snapshot.clear()
-    print("   Xóa bản sao get_all() không ảnh hưởng kho:", len(projector_repo.get_all()), "phần tử vẫn còn")
+    print("   Xóa bản sao GetAll() không ảnh hưởng kho:", len(projectorRepo.GetAll()), "phần tử vẫn còn")
  
  
 if __name__ == "__main__":
     main()
-'''
