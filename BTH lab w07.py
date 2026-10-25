@@ -387,7 +387,7 @@ def main():
     # Kho không lộ collection nội bộ
     snapshot = projectorRepo.GetAll()
     snapshot.clear()
-    print("   Xóa bản sao get_all() không ảnh hưởng kho:", len(projectorRepo.GetAll()), "phần tử vẫn còn")
+    print("   Xóa bản sao GetAll() không ảnh hưởng kho:", len(projectorRepo.GetAll()), "phần tử vẫn còn")
  
  
 if __name__ == "__main__":
