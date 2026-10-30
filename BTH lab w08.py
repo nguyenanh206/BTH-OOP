@@ -4,6 +4,7 @@
 from abc import ABC, abstractmethod
 from enum import Enum
 from typing import Generic, TypeVar, List, Dict, Callable, Optional, Set
+from datetime import datetime
 
 # Enum cho trạng thái thiết bị
 class DeviceStatus(Enum):
@@ -21,6 +22,53 @@ class AlertSeverity(Enum):
 # LỚP DỮ LIỆU SỰ KIỆN
 #--------------------------
 
+#Sự kiện thay đổi trạng thái
+class DeviceStatusChangedEventArgs:
+    def __init__(self, deviceId: str, oldStatus: DeviceStatus, newStatus: DeviceStatus, changedAt: datetime.datetime):
+        self._deviceId = deviceId
+        self._oldStatus = oldStatus
+        self._newStatus = newStatus
+        self._changedAt = changedAt
+
+    @property
+    def deviceId(self) -> str:
+        return self._deviceId
+
+    @property
+    def oldStatus(self) -> DeviceStatus:
+        return self._oldStatus
+
+    @property
+    def newStatus(self) -> DeviceStatus:
+        return self._newStatus
+
+    @property
+    def changedAt(self) -> datetime.datetime:
+        return self._changedAt
+,
+#Sự kiện cảnh báo thiết bị
+class DeviceAlertEventArgs:
+    def __init__(self, deviceId: str, message: str, severity: AlertSeverity, occurredAt: datetime.datetime):
+        self._deviceId = deviceId
+        self._message = message
+        self._severity = severity
+        self._occurredAt = occurredAt
+
+    @property
+    def deviceId(self) -> str:
+        return self._deviceId
+
+    @property
+    def message(self) -> str:
+        return self._message
+
+    @property
+    def severity(self) -> AlertSeverity:
+        return self._severity
+
+    @property
+    def occurredAt(self) -> datetime.datetime:
+        return self._occurredAt
 
 
 
@@ -28,49 +76,57 @@ class AlertSeverity(Enum):
 # NGOẠI LỆ NGHIỆP VỤ
 #---------------------------
 
-#Trùng ID
-class DuplicateIdException(Exception):
-    def __init__(self, duplicateId: str):
-        super().__init__(f"Mã thiết bị '{duplicateId}' đã tồn tại")
-        self._duplicatedId = duplicateId
+class InvalidDeviceReadingException(Exception):
+    def __init__(self, deviceId: str, invalidValue: int):
+        super().__init__(f"Giá trị đọc không hợp lệ ({invalidValue}) cho thiết bị {deviceId}. Phải từ 0 đến 100")
+        self._deviceId = deviceId
+        self._invalidValue = invalidValue
 
-# Khôgn thấy mục phù hợp
-class NoSuitableItemException(Exception):
-    def __init__(self, message: str = "Không cthấy mục phù hợp."):
-        super().__init__(message)
+    @property
+    def device_Id(self) -> str:
+        return self._deviceId
 
-# Thiết bị không sẵn sàng
-class DeviceNotReadyException(Exception):
-     def __init__(self, deviceId: str, currentStatus: DeviceStatus):
-        super().__init__(f"Thiết bị '{deviceId}' không sẵn sàng (Trạng thái: {currentStatus.name}).")
-        self.deviceId = deviceId
-        self.currentStatus = currentStatus
+    @property
+    def invalidValue(self) -> int:
+        return self._invalidValue
+
+class Event:
+    def __init__(self):
+        self._listeners: List[Callable] = []
+
+    def __iadd__(self, listener: Callable):
+        if listener not in self._listeners:
+            self._listeners.append(listener)
+        return self
+
+    def __isub__(self, listener: Callable):
+        if listener in self._listeners:
+            self._listeners.remove(listener)
+        return self
+
+    def invoke(self, sender, e):
+        for listener in self._listeners:
+            listener(sender, e)
+
 
 #---------------------------
 # Lớp trừu tượng 
 #---------------------------
-
-# Interface nhận diện đối tượng
-class IIdentifiable(ABC):
-    @property
-    @abstractmethod
-    def id(self) -> str:
-        pass
 # TEACHING DEVICE
 
-class TeachingDevice(IIdentifiable, ABC):
-    def __init__(self, id: str, name: str, storageLocation: str, status: DeviceStatus = DeviceStatus.AVAILABLE):
+class TeachingDevice(ABC):
+    def __init__(self, id: str, name: str, status: DeviceStatus = DeviceStatus.AVAILABLE):
         if not id or not id.strip():
             raise ValueError("Mã thiết bị không được rỗng")
         if not name or not name.strip():
             raise ValueError("Tên thiết bị phải hợp lệ")
-        if not storageLocation or not storageLocation.strip():
-            raise ValueError("Vị trí lưu trữ không được rỗng")
         
         self._id = id
         self._name = name
-        self._storageLocation = storageLocation
         self._status = status
+
+        self.statusChanged = Event()
+        self.alertRaised = Event
 
     @property
     def id(self) -> str:
@@ -80,9 +136,6 @@ class TeachingDevice(IIdentifiable, ABC):
     def name(self) -> str:
         return self._name
 
-    @property
-    def storageLocation(self) -> int:
-        return self._storageLocation
 
     @property
     def status(self) -> DeviceStatus:
@@ -92,38 +145,33 @@ class TeachingDevice(IIdentifiable, ABC):
     def status(self, value: DeviceStatus):
         self._status = value
 
-# Ktra khả năng sẵn sàng của thiết bị
-    def IsReadyForUse(self) -> bool:
-        pass
 
-#Tính điểm ưu tiên của thiết bị 
-    def GetDefaultPriorityScore(self) -> float:
-        pass
+    def ChangeStatus(self, newStatus: DeviceStatus):
+        if newStatus == self._status:
+            return
+        oldStatus = self._status
+        self._status = newStatus
+        self.OnStatusChanged(
+            DeviceStatusChangedEventArgs(self._id, oldStatus, self._status, datetime.datetime.now()))
 
-# Mượn thiết bị
-    def Borrow(self):
-        if not self.IsReadyForUse():
-            raise DeviceNotReadyException(self._id, self._status)
-        self._status = DeviceStatus.BORROWED
+    def RaiseAlert(self, message: str, severity: AlertSeverity):
+        self.OnAlertRaised(
+            DeviceAlertEventArgs(self._id, message, severity, datetime.datetime.now()))
 
-# Trả thiết bị
-    def Return(self):
-        if self._status != DeviceStatus.BORROWED:
-            raise DeviceNotReadyException(self._id, self._status)
-        self._status = DeviceStatus.AVAILABLE
+    def OnStatusChanged(self, e: DeviceStatusChangedEventArgs):
+        self.statusChanged.invoke(self, e)
 
-    def __str__(self) -> str:
-        return (f"[{type(self).__name__}] {self._id} - {self._name} | "
-                f"{self._storageLocation} | {self._status.value}")
-    
+    def OnAlertRaised(self, e: DeviceAlertEventArgs):
+        self.alertRaised.invoke(self, e)
+
 #----------------------------   
 # CÁC LỚP DẪN XUẤT
 #-----------------------------
 
 # Projector Remote
 class ProjectorRemote(TeachingDevice):
-    def __init__(self, id: str, name: str, storageLocation: str, batteryLevel: int, status: DeviceStatus = DeviceStatus.AVAILABLE):
-        super().__init__(id, name, storageLocation, status)
+    def __init__(self, id: str, name: str, batteryLevel: int, status: DeviceStatus = DeviceStatus.AVAILABLE):
+        super().__init__(id, name, status)
         if not (0 <= batteryLevel <= 100):
             raise ValueError("Mức pin phải từ 0 đến 100")
         self._batteryLevel = batteryLevel
@@ -132,40 +180,50 @@ class ProjectorRemote(TeachingDevice):
     def batteryLevel(self) -> int:
         return self._batteryLevel
 
-    def IsReadyForUse(self) -> bool:
-        return self._status == DeviceStatus.AVAILABLE and self._batteryLevel >= 20
+    def UpdateBatteryLevel(self, newLevel: int):
+        if not (0 <= newLevel <= 100):
+            raise InvalidDeviceReadingException(self.id, newLevel)
 
-    def GetDefaultPriorityScore(self) -> float:
-        return float(self._batteryLevel)
+        oldLevel = self._batteryLevel
+        self._batteryLevel = newLevel
 
+        if self._batteryLevel == 0 and oldLevel != 0:
+            self.RaiseAlert("Mức pin bằng 0%, thiết bị ngừng hoạt động!", AlertSeverity.CRITICAL)
+        elif self._batteryLevel < 20 and oldLevel >= 20:
+            self.RaiseAlert(f"Mức pin xuống thấp ({self._batteryLevel}%)", AlertSeverity.WARNING)
 
 # Air Conditioner Remote
 class AirConditionerRemote(TeachingDevice):
-    def __init__(self, id: str, name: str, storageLocation: str, compatibleRooms, status: DeviceStatus = DeviceStatus.AVAILABLE):
-        super().__init__(id, name, storageLocation, status)
-        self._compatibleRooms = frozenset(compatibleRooms)
+    def __init__(self, id: str, name: str, assignedRoom: str, isResponsive: bool = True, status: DeviceStatus = DeviceStatus.AVAILABLE):
+        super().__init__(id, name, status)
+        self._assignedRoom = assignedRoom
+        self._isResponsive = isResponsive
 
     @property
-    def compatibleRooms(self) -> frozenset:
-       return self._compatibleRooms
+    def assignedRoom(self) -> str:
+        return self._assignedRoom
 
-    def IsCompatibleWith(self, roomId: str) -> bool:
-       return roomId in self._compatibleRooms
+    @property
+    def isResponsive(self) -> bool:
+        return self._isResponsive
 
-    def IsReadyForUse(self) -> bool:
-       return self._status == DeviceStatus.AVAILABLE 
-    
-    def GetDefaultPriorityScore(self) -> float:
-        return 100.0 if self._compatibleRooms else 0.0
+    def UpdateResponseState(self, isResponsive: bool):
+        if self._isResponsive and not isResponsive:
+            self._isResponsive = False
+            self.RaiseAlert(f"Điều hòa tại phòng {self._assignedRoom} không phản hồi tín hiệu", AlertSeverity.CRITICAL)
+        elif not self._isResponsive and isResponsive:
+            self._isResponsive = True
+            self.RaiseAlert(f"Điều hòa tại phòng {self._assignedRoom} đã hoạt động trở lại.", AlertSeverity.INFORMATION)
     
 # WIRELESS MICROPHONE
 class WirelessMicrophone(TeachingDevice):
-    def __init__(self, id: str, name: str, storageLocation: str, batteryLevel: int, signalQuality: int, status: DeviceStatus = DeviceStatus.AVAILABLE):
-        super().__init__(id, name, storageLocation, status)
+    def __init__(self, id: str, name: str, batteryLevel: int, signalQuality: int, status: DeviceStatus = DeviceStatus.AVAILABLE):
+        super().__init__(id, name, status)
         if not (0 <= batteryLevel <= 100):
-            raise ValueError("Mức pin phải từ 0 đến 100")
+            raise InvalidDeviceReadingException(id, batteryLevel)
         if not (0 <= signalQuality <= 100):
-            raise ValueError("CHất lượng tín hiệu phải từ 0 đến 100")
+            raise InvalidDeviceReadingException(id, signalQuality)
+        
         self._batteryLevel = batteryLevel
         self._signalQuality = signalQuality
 
@@ -176,26 +234,121 @@ class WirelessMicrophone(TeachingDevice):
     def signalQuality(self) -> int:
         return self._signalQuality
     
-    def IsReadyForUse(self) -> bool:
-        return self._status == DeviceStatus.AVAILABLE and self._batteryLevel >= 30 and self._signalQuality >= 40
+    def UpdateBatteryLevel(self, newLevel: int):
+        if not (0 <= newLevel <= 100):
+            raise InvalidDeviceReadingException(self.id, newLevel)
+        self._batteryLevel = newLevel
+        
+        if self._batterylevel == 0:
+            self.RaiseAlert("Pin micro bằng 0%!", AlertSeverity.CRITICAL)
+        elif self._batteryLevel < 30:
+            self.RaiseAlert(f"Pin micro thấp ({self._batteryLevel}%)", AlertSeverity.WARNING)
 
-    def GetDefaultPriorityScore(self) -> float:
-        return float(self._batteryLevel + self._signalQuality) / 2.0
+    def UpdateSignalQuality(self, newQuality: int):
+        if not (0 <= newQuality <= 100):
+            raise InvalidDeviceReadingException(self.id, newQuality)
+        self._signalQuality = newQuality
+        
+        if self._signalQuality == 0:
+            self.RaiseAlert("Tín hiệu micro mất hoàn toàn (0%)!", AlertSeverity.CRITICAL)
+        elif self._signalSuality < 40:
+            self.RaiseAlert(f"Chất lượng tín hiệu micro kém ({self._signalQuality}%)", AlertSeverity.WARNING)
 
 
 #------------------------------
 # CÁC SUBSCRIBER
 #------------------------------
+# Hiển thị cảnh báo
+class ConsoleNotificationService:
+    def HandleAlert(self, sender, e: DeviceAlertEventArgs):
+        print(f"[THÔNG BÁO CONSOLE] [{e.severity.name}] {e.deviceId}: {e.message}")
+
+#Ghi lại lịch sử thay đổi trạng thái
+class DeviceAuditLogger:
+    def __init__(self):
+        self._entries: List[str] = []
+
+    @property
+    def entries(self) -> List[str]:
+        return list(self._entries)
+
+    def HandleStatusChanged(self, sender, e: DeviceStatusChangedEventArgs):
+        logEntry = f"{e.changedAt.strftime('%Y-%m-%d %H:%M:%S')} : {e.deviceId}, {e.oldStatus.name} -> {e.newStatus.name}"
+        self._entries.append(logEntry)
+        print(f"[AUDIT LOGGER] {logEntry}")
+
+# Yêu cầu bảo trì
+class MaintenanceService:
+    def __init__(self):
+        self._requests: List[str] = []
+
+    @property
+    def requests(self) -> List[str]:
+        return list(self._requests)
+
+    def HandleCriticalAlert(self, sender, e: DeviceAlertEventArgs):
+        if e.severity != AlertSeverity.CRITICAL:
+            return
+        requestMsg = f"Yêu cầu bảo trì cho {e.deviceId}: {e.message}"
+        self._requests.append(requestMsg)
+        print(f"[MAINTENANCE SERVICE] Đã tạo phiếu: {requestMsg}")
+
 
 #-------------------------------
 # DELEGATE & CALLBACK
 #-------------------------------
+#áp dụng delegate trước khi thực thi 
 
+class FilteredAlertSubscriber:
+    def __init__(self, filterFunc: AlertFilter, action: Callable[[DeviceAlertEventArgs], None]):
+        self._filter = filterFunc
+        self._action = action
+
+    def HandleAlert(self, sender, e: DeviceAlertEventArgs):
+        if self._filter(e):
+            self._action(e)
 
 # --------------------------------------------
 # LỚP ĐIỀU PHỐI ĐĂNG KÍ
 # --------------------------------------------
+class DeviceMonitoringCoordinator:
+    def __init__(self, devices: IEnumerable[TeachingDevice], 
+                 notificationService: ConsoleNotificationService, 
+                 auditLogger: DeviceAuditLogger, 
+                 maintenanceService: MaintenanceService):
+        self._devices = list(devices)
+        self._notificationService = notificationService
+        self._auditLogger = auditLogger
+        self._maintenanceService = maintenanceService
+        self._isSubscribed = False
 
+    def subscribe(self):
+        if self._isSubscribed:
+            return
+        for device in self._devices:
+            device.statusChanged -= self._auditLogger.HandleStatusChanged
+            device.statusChanged += self._auditLogger.HandleStatusChanged
+
+            device.alertRaised -= self._notificationService.HandleAlert
+            device.alertRaised += self._notificationService.HandleAlert
+
+            device.alertRaised -= self._maintenanceService.HandleCriticalAlert
+            device.alertRaised += self._maintenanceService.HandleCriticalAlert
+        self._isSubscribed = True
+        print("[COORDINATOR] Đã đăng ký thành công các event cho thiết bị.")
+
+    def unsubscribe(self):
+        if not self._isSubscribed:
+            return
+        for device in self._devices:
+            device.statusChanged -= self._auditLogger.HandleStatusChanged
+            device.alertRaised -= self._notificationService.HandleAlert
+            device.alertRaised -= self._maintenanceService.HandleCriticalAlert
+        self._isSubscribed = False
+        print("[COORDINATOR] Đã hủy đăng ký các event.")
+
+    def dispose(self):
+        self.unsubscribe()
 
  
 
