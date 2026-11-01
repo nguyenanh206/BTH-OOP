@@ -4,7 +4,7 @@
 from abc import ABC, abstractmethod
 from enum import Enum
 from typing import Generic, TypeVar, List, Dict, Callable, Optional, Set
-from datetime import datetime
+import datetime
 
 # Enum cho trạng thái thiết bị
 class DeviceStatus(Enum):
@@ -24,7 +24,7 @@ class AlertSeverity(Enum):
 
 #Sự kiện thay đổi trạng thái
 class DeviceStatusChangedEventArgs:
-    def __init__(self, deviceId: str, oldStatus: DeviceStatus, newStatus: DeviceStatus, changedAt: datetime.datetime):
+    def __init__(self, deviceId: str, oldStatus: DeviceStatus, newStatus: DeviceStatus, changedAt: datetime):
         self._deviceId = deviceId
         self._oldStatus = oldStatus
         self._newStatus = newStatus
@@ -83,7 +83,7 @@ class InvalidDeviceReadingException(Exception):
         self._invalidValue = invalidValue
 
     @property
-    def device_Id(self) -> str:
+    def deviceId(self) -> str:
         return self._deviceId
 
     @property
@@ -239,7 +239,7 @@ class WirelessMicrophone(TeachingDevice):
             raise InvalidDeviceReadingException(self.id, newLevel)
         self._batteryLevel = newLevel
         
-        if self._batterylevel == 0:
+        if self._batteryLevel == 0:
             self.RaiseAlert("Pin micro bằng 0%!", AlertSeverity.CRITICAL)
         elif self._batteryLevel < 30:
             self.RaiseAlert(f"Pin micro thấp ({self._batteryLevel}%)", AlertSeverity.WARNING)
@@ -251,7 +251,7 @@ class WirelessMicrophone(TeachingDevice):
         
         if self._signalQuality == 0:
             self.RaiseAlert("Tín hiệu micro mất hoàn toàn (0%)!", AlertSeverity.CRITICAL)
-        elif self._signalSuality < 40:
+        elif self._signalQuality < 40:
             self.RaiseAlert(f"Chất lượng tín hiệu micro kém ({self._signalQuality}%)", AlertSeverity.WARNING)
 
 
