@@ -354,27 +354,58 @@ class DeviceMonitoringCoordinator:
 
 # ---------------------------------------
 # KIỂM THỬ
-# ---------------------------------------
-def ExpectError(title: str, action, exc_type) -> None:
-    try:
-        action()
-        print(f"   !! {title}: không có ngoại lệ (không mong đợi)")
-    except exc_type as ex:
-        print(f"   {title}: bắt {type(ex).__name__} -> {ex}")
- 
- 
-def main():
-    p1 = ProjectorRemote("PJ01", "Remote Epson 1", "Kho A", 85)
-    p2 = ProjectorRemote("PJ02", "Remote Epson 2", "Kho A", 55)
-    p3 = ProjectorRemote("PJ03", "Remote Epson 3", "Kho A", 15)          # pin yếu -> chưa sẵn sàng
-    a1 = AirConditionerRemote("AC01", "Remote Daikin", "Kho B", {"A101", "A203"})
-    a2 = AirConditionerRemote("AC02", "Remote Panasonic", "Kho B", {"B102"})
-    m1 = WirelessMicrophone("MIC01", "Micro Shure", "Kho C", 90, 80)
-    m2 = WirelessMicrophone("MIC02", "Micro Sony", "Kho C", 60, 50)
-    m3 = WirelessMicrophone("MIC03", "Micro Boya", "Kho C", 20, 90)      # pin yếu -> chưa sẵn sàng
- 
-    
- 
- 
+# ---------------------------------------   
 if __name__ == "__main__":
-    main()
+    print("=== BẮT ĐẦU KIỂM THỬ CHỦ ĐỀ DELEGATE & EVENT ===")
+
+    # Khởi tạo các thiết bị
+    pj = ProjectorRemote("PJ01", "Máy chiếu Sony", 85)
+    ac = AirConditionerRemote("AC01", "Điều hòa phòng 203", "Phòng 203", True)
+    mic = WirelessMicrophone("MIC01", "Micro không dây Shure", 50, 70)
+
+    # Khởi tạo các subscriber
+    notifier = ConsoleNotificationService()
+    logger = DeviceAuditLogger()
+    maintenance = MaintenanceService()
+
+    # Sử dụng Coordinator để quản lý đăng ký event
+    coordinator = DeviceMonitoringCoordinator([pj, ac, mic], notifier, logger, maintenance)
+    coordinator.subscribe()
+
+    print("\n--- 1. Kiểm thử thay đổi trạng thái (Kích hoạt AuditLogger) ---")
+    pj.ChangeStatus(DeviceStatus.BORROWED)
+    pj.ChangeStatus(DeviceStatus.UNDER_MAINTENANCE)
+
+    print("\n--- 2. Kiểm thử cảnh báo Warning (Máy chiếu pin < 20%) ---")
+    pj.UpdateBatteryLevel(15)
+
+    print("\n--- 3. Kiểm thử cảnh báo Critical & MaintenanceService (Máy chiếu pin = 0%) ---")
+    pj.UpdateBatteryLevel(0)
+
+    print("\n--- 4. Kiểm thử điều hòa mất tín hiệu (Critical -> Tạo phiếu bảo trì) ---")
+    ac.UpdateResponseState(False)
+
+    print("\n--- 5. Kiểm thử micro pin yếu và tín hiệu kém ---")
+    mic.UpdateBatteryLevel(20)  # Warning
+    mic.UpdateSignalQuality(25) # Warning
+
+    print("\n--- 6. Kiểm thử FilteredAlertSubscriber (Delegate lọc cảnh báo Critical) ---")
+    criticalFilter = FilteredAlertSubscriber(
+        filterFunc=lambda alert: alert.severity == AlertSeverity.CRITICAL,
+        action=lambda alert: print(f"==> [LỌC RIÊNG CẢNH BÁO NGUY HIỂM] Thiết bị {alert.deviceId}: {alert.message}")
+    )
+    # Đăng ký thủ công filter vào micro
+    mic.alertRaised += criticalFilter.HandleAlert
+
+    mic.UpdateBatteryLevel(0) # Sẽ kích hoạt cả hệ thống thông thường lẫn filter đặc biệt
+
+    print("\n--- 7. Kiểm thử ngoại lệ giá trị đọc không hợp lệ ---")
+    try:
+        mic.UpdateBatteryLevel(150)
+    except InvalidDeviceReadingException as ex:
+        print(f"Bắt ngoại lệ thành công: {ex} (Mã thiết bị: {ex.deviceId}, Giá trị lỗi: {ex.invalidValue})")
+
+    print("\n--- 8. Hủy đăng ký (Dispose Coordinator) ---")
+    coordinator.dispose()
+    
+    print("\n=== KẾT THÚC KIỂM THỬ THÀNH CÔNG ===")
