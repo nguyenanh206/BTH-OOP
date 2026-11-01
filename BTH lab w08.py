@@ -45,7 +45,7 @@ class DeviceStatusChangedEventArgs:
     @property
     def changedAt(self) -> datetime.datetime:
         return self._changedAt
-,
+
 #Sự kiện cảnh báo thiết bị
 class DeviceAlertEventArgs:
     def __init__(self, deviceId: str, message: str, severity: AlertSeverity, occurredAt: datetime.datetime):
@@ -126,7 +126,7 @@ class TeachingDevice(ABC):
         self._status = status
 
         self.statusChanged = Event()
-        self.alertRaised = Event
+        self.alertRaised = Event()
 
     @property
     def id(self) -> str:
@@ -299,6 +299,7 @@ class MaintenanceService:
 #-------------------------------
 #áp dụng delegate trước khi thực thi 
 
+AlertFilter = Callable[[DeviceAlertEventArgs], bool]
 class FilteredAlertSubscriber:
     def __init__(self, filterFunc: AlertFilter, action: Callable[[DeviceAlertEventArgs], None]):
         self._filter = filterFunc
@@ -312,7 +313,7 @@ class FilteredAlertSubscriber:
 # LỚP ĐIỀU PHỐI ĐĂNG KÍ
 # --------------------------------------------
 class DeviceMonitoringCoordinator:
-    def __init__(self, devices: IEnumerable[TeachingDevice], 
+    def __init__(self, devices: List[TeachingDevice], 
                  notificationService: ConsoleNotificationService, 
                  auditLogger: DeviceAuditLogger, 
                  maintenanceService: MaintenanceService):
