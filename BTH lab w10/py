@@ -116,32 +116,42 @@ class ArgumentExcetion(Exception):
 # ---------------------------------------------------------------------------
 # SINGLETON PATTERN
 # ---------------------------------------------------------------------------
+
 class HomeConfiguration:
-    """Chỉ có một thể hiện duy nhất, an toàn luồng (double-checked locking)."""
+# Cấu hình chung của ngôi nhà chỉ có một thể hiện duy nhất
 
     _instance = None
     _lock = Lock()
 
-    def __init__(self):
-        # Dữ liệu thực sự thuộc cấu hình chung
-        self.home_name = "My Home"
-        self.night_light_level = 30
-
-    @classmethod
-    def instance(cls) -> "HomeConfiguration":
-        """Trả về thể hiện duy nhất, tạo ở lần gọi đầu (lazy)."""
-        if cls._instance is None:
-            with cls._lock:
-                if cls._instance is None:
-                    cls._instance = cls()
+    def __new__(cls):
+        with cls._lock:
+            if cls._instance is None:
+                cls._instance = super(HomeConfiguration, cls).__new__(cls)
+                cls._instance._HomeName = "My Home"
+                cls._instance._NightLightLevel = 30
         return cls._instance
 
+    @property
+    def HomeName(self) -> str:
+        return self._HomeName
+
+    @HomeName.setter
+    def HomeName(self, value: str):
+        self._HomeName = value
+
+    @property
+    def NightLightLevel(self) -> int:
+        return self._NightLightLevel
+
+    @NightLightLevel.setter
+    def NightLightLevel(self, value: int):
+        self._NightLightLevel = value
+
 
 # ---------------------------------------------------------------------------
-# Phần E: Facade - thao tác mức cao cho nhiều thiết bị
+# FACADE
 # ---------------------------------------------------------------------------
 class SmartHomeFacade:
-    """Giao diện đơn giản cho các chế độ thường dùng."""
 
     def __init__(self, light: IDevice, fan: IDevice, door: ILockable):
         # Chỉ phụ thuộc abstraction, không phụ thuộc lớp cụ thể
@@ -149,18 +159,16 @@ class SmartHomeFacade:
         self._fan = fan
         self._door = door
 
-    def go_to_work(self) -> None:
-        """Chế độ Đi làm: tắt đèn, tắt quạt, khóa cửa."""
-        self._light.turn_off()
-        self._fan.turn_off()
-        self._door.lock()
+    def GoToWork(self) -> None:
+        self._light.TurnOff()
+        self._fan.TurnOff()
+        self._door.Lock()
 
-    def go_to_sleep(self) -> None:
-        """Chế độ Đi ngủ: tắt quạt, khóa cửa, bật đèn ngủ."""
-        self._fan.turn_off()
-        self._door.lock()
-        self._light.turn_on()
-        level = HomeConfiguration.instance().night_light_level
+    def GoToSleep(self) -> None:
+        self._fan.TurnOff()
+        self._door.Lock()
+        self._light.TurnOn()
+        level = HomeConfiguration.instance().NightLightLevel
         print(f"Night light level: {level}%")
 
 
