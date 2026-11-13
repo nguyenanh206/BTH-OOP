@@ -1,106 +1,99 @@
-# /****************/
-# Mã sinh viên: 202418833
-# Họ tên: Hà Anh
-# /****************/
-"""
-Bài thực hành 10 - Smart Home Mini.
-Áp dụng 3 mẫu thiết kế: Factory, Singleton, Facade.
-"""
+# MSSV: 202418833
+# Họ tên: Nguyễn Hà Anh
+
 from abc import ABC, abstractmethod
 from threading import Lock
 
 
 # ---------------------------------------------------------------------------
-# Phần B: Mô hình thiết bị (các "interface" tách biệt theo khả năng)
+# INTERFACE - MÔ HÌNH THIẾT BỊ
 # ---------------------------------------------------------------------------
 class IDevice(ABC):
-    """Abstraction chung: mọi thiết bị đều bật/tắt được."""
 
+    #Bật thiết bị
     @abstractmethod
-    def turn_on(self) -> None:
-        """Bật thiết bị."""
+    def TurnOn(self):
+        pass
 
+    #Tắt thiết bị
     @abstractmethod
-    def turn_off(self) -> None:
-        """Tắt thiết bị."""
+    def TurnOff(self):
+        pass
 
-
+#Khả năng riêng của cửa: khóa / mở khóa 
 class ILockable(ABC):
-    """Khả năng riêng của cửa: khóa / mở khóa (không đưa vào IDevice)."""
 
+    #Khoá
     @abstractmethod
-    def lock(self) -> None:
-        """Khóa."""
+    def Lock(self):
+        pass
 
+    # MỞ khoá
     @abstractmethod
-    def unlock(self) -> None:
-        """Mở khóa."""
+    def Unlock(self):
+        pass
 
-
+#Đèn thông minh
 class SmartLight(IDevice):
-    """Đèn thông minh."""
 
     def __init__(self, name: str):
-        self.name = name  # tên riêng truyền qua constructor
+        self.name = name 
         self.is_on = False
 
-    def turn_on(self) -> None:
+    def TurnOn(self):
         self.is_on = True
         print(f"{self.name}: ON")
 
-    def turn_off(self) -> None:
+    def TurnOff(self):
         self.is_on = False
         print(f"{self.name}: OFF")
 
-
+#Quạt thông minh
 class SmartFan(IDevice):
-    """Quạt thông minh."""
 
     def __init__(self, name: str):
         self.name = name
         self.is_on = False
 
-    def turn_on(self) -> None:
+    def TurnOn(self):
         self.is_on = True
         print(f"{self.name}: ON")
 
-    def turn_off(self) -> None:
+    def TurnOff(self) -> None:
         self.is_on = False
         print(f"{self.name}: OFF")
 
-
+#Cửa thông minh
 class SmartDoor(IDevice, ILockable):
-    """Cửa thông minh: vừa bật/tắt vừa khóa/mở khóa."""
 
     def __init__(self, name: str):
         self.name = name
         self.is_on = False
         self.is_locked = False
 
-    def turn_on(self) -> None:
+    def TurnOn(self):
         self.is_on = True
         print(f"{self.name}: ON")
 
-    def turn_off(self) -> None:
+    def TurnOff(self):
         self.is_on = False
         print(f"{self.name}: OFF")
 
-    def lock(self) -> None:
+    def Lock(self):
         self.is_locked = True
         print(f"{self.name}: LOCKED")
 
-    def unlock(self) -> None:
+    def Unlock(self):
         self.is_locked = False
         print(f"{self.name}: UNLOCKED")
 
 
 # ---------------------------------------------------------------------------
-# Phần C: Factory - che giấu việc chọn lớp cụ thể khỏi client
+# FACTORY PATTERN
 # ---------------------------------------------------------------------------
-class DeviceFactory:
-    """Tạo thiết bị theo loại; client chỉ làm việc với IDevice."""
 
-    # Bảng ánh xạ loại -> lớp (thêm loại mới chỉ cần thêm 1 dòng)
+#client chỉ làm việc với IDevice
+class DeviceFactory:
     _registry = {
         "light": SmartLight,
         "fan": SmartFan,
@@ -108,22 +101,20 @@ class DeviceFactory:
     }
 
     @staticmethod
-    def create(device_type: str, name: str) -> IDevice:
-        """Tạo thiết bị; không phân biệt hoa/thường.
+    def create(devicetype: str, name: str) -> IDevice:
 
-        Raises:
-            ValueError: loại thiết bị không hỗ trợ (tương đương
-            ArgumentException trong C#), không trả về None.
-        """
-        key = device_type.strip().lower()
+        key = devicetype.strip().lower()
         cls = DeviceFactory._registry.get(key)
         if cls is None:
-            raise ValueError(f"Unsupported device type: {device_type}")
+            raise ValueError(f"Unsupported device type: {devicetype}")
         return cls(name)
+
+class ArgumentExcetion(Exception):
+    pass
 
 
 # ---------------------------------------------------------------------------
-# Phần D: Singleton - cấu hình chung của ngôi nhà
+# SINGLETON PATTERN
 # ---------------------------------------------------------------------------
 class HomeConfiguration:
     """Chỉ có một thể hiện duy nhất, an toàn luồng (double-checked locking)."""
