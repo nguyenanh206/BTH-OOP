@@ -1,0 +1,195 @@
+# /****************/
+# Mã sinh viên: 202418833
+# Họ tên: Hà Anh
+# /****************/
+"""
+Bài thực hành 10 - Smart Home Mini.
+Áp dụng 3 mẫu thiết kế: Factory, Singleton, Facade.
+"""
+from abc import ABC, abstractmethod
+from threading import Lock
+
+
+# ---------------------------------------------------------------------------
+# Phần B: Mô hình thiết bị (các "interface" tách biệt theo khả năng)
+# ---------------------------------------------------------------------------
+class IDevice(ABC):
+    """Abstraction chung: mọi thiết bị đều bật/tắt được."""
+
+    @abstractmethod
+    def turn_on(self) -> None:
+        """Bật thiết bị."""
+
+    @abstractmethod
+    def turn_off(self) -> None:
+        """Tắt thiết bị."""
+
+
+class ILockable(ABC):
+    """Khả năng riêng của cửa: khóa / mở khóa (không đưa vào IDevice)."""
+
+    @abstractmethod
+    def lock(self) -> None:
+        """Khóa."""
+
+    @abstractmethod
+    def unlock(self) -> None:
+        """Mở khóa."""
+
+
+class SmartLight(IDevice):
+    """Đèn thông minh."""
+
+    def __init__(self, name: str):
+        self.name = name  # tên riêng truyền qua constructor
+        self.is_on = False
+
+    def turn_on(self) -> None:
+        self.is_on = True
+        print(f"{self.name}: ON")
+
+    def turn_off(self) -> None:
+        self.is_on = False
+        print(f"{self.name}: OFF")
+
+
+class SmartFan(IDevice):
+    """Quạt thông minh."""
+
+    def __init__(self, name: str):
+        self.name = name
+        self.is_on = False
+
+    def turn_on(self) -> None:
+        self.is_on = True
+        print(f"{self.name}: ON")
+
+    def turn_off(self) -> None:
+        self.is_on = False
+        print(f"{self.name}: OFF")
+
+
+class SmartDoor(IDevice, ILockable):
+    """Cửa thông minh: vừa bật/tắt vừa khóa/mở khóa."""
+
+    def __init__(self, name: str):
+        self.name = name
+        self.is_on = False
+        self.is_locked = False
+
+    def turn_on(self) -> None:
+        self.is_on = True
+        print(f"{self.name}: ON")
+
+    def turn_off(self) -> None:
+        self.is_on = False
+        print(f"{self.name}: OFF")
+
+    def lock(self) -> None:
+        self.is_locked = True
+        print(f"{self.name}: LOCKED")
+
+    def unlock(self) -> None:
+        self.is_locked = False
+        print(f"{self.name}: UNLOCKED")
+
+
+# ---------------------------------------------------------------------------
+# Phần C: Factory - che giấu việc chọn lớp cụ thể khỏi client
+# ---------------------------------------------------------------------------
+class DeviceFactory:
+    """Tạo thiết bị theo loại; client chỉ làm việc với IDevice."""
+
+    # Bảng ánh xạ loại -> lớp (thêm loại mới chỉ cần thêm 1 dòng)
+    _registry = {
+        "light": SmartLight,
+        "fan": SmartFan,
+        "door": SmartDoor,
+    }
+
+    @staticmethod
+    def create(device_type: str, name: str) -> IDevice:
+        """Tạo thiết bị; không phân biệt hoa/thường.
+
+        Raises:
+            ValueError: loại thiết bị không hỗ trợ (tương đương
+            ArgumentException trong C#), không trả về None.
+        """
+        key = device_type.strip().lower()
+        cls = DeviceFactory._registry.get(key)
+        if cls is None:
+            raise ValueError(f"Unsupported device type: {device_type}")
+        return cls(name)
+
+
+# ---------------------------------------------------------------------------
+# Phần D: Singleton - cấu hình chung của ngôi nhà
+# ---------------------------------------------------------------------------
+class HomeConfiguration:
+    """Chỉ có một thể hiện duy nhất, an toàn luồng (double-checked locking)."""
+
+    _instance = None
+    _lock = Lock()
+
+    def __init__(self):
+        # Dữ liệu thực sự thuộc cấu hình chung
+        self.home_name = "My Home"
+        self.night_light_level = 30
+
+    @classmethod
+    def instance(cls) -> "HomeConfiguration":
+        """Trả về thể hiện duy nhất, tạo ở lần gọi đầu (lazy)."""
+        if cls._instance is None:
+            with cls._lock:
+                if cls._instance is None:
+                    cls._instance = cls()
+        return cls._instance
+
+
+# ---------------------------------------------------------------------------
+# Phần E: Facade - thao tác mức cao cho nhiều thiết bị
+# ---------------------------------------------------------------------------
+class SmartHomeFacade:
+    """Giao diện đơn giản cho các chế độ thường dùng."""
+
+    def __init__(self, light: IDevice, fan: IDevice, door: ILockable):
+        # Chỉ phụ thuộc abstraction, không phụ thuộc lớp cụ thể
+        self._light = light
+        self._fan = fan
+        self._door = door
+
+    def go_to_work(self) -> None:
+        """Chế độ Đi làm: tắt đèn, tắt quạt, khóa cửa."""
+        self._light.turn_off()
+        self._fan.turn_off()
+        self._door.lock()
+
+    def go_to_sleep(self) -> None:
+        """Chế độ Đi ngủ: tắt quạt, khóa cửa, bật đèn ngủ."""
+        self._fan.turn_off()
+        self._door.lock()
+        self._light.turn_on()
+        level = HomeConfiguration.instance().night_light_level
+        print(f"Night light level: {level}%")
+
+
+# ---------------------------------------------------------------------------
+# Chương trình demo
+# ---------------------------------------------------------------------------
+def main() -> None:
+    light = DeviceFactory.create("light", "Living room light")
+    fan = DeviceFactory.create("FAN", "Living room fan")
+    door = DeviceFactory.create("door", "Main door")
+
+    facade = SmartHomeFacade(light, fan, door)
+    print("--- GoToWork ---")
+    facade.go_to_work()
+    print("--- GoToSleep ---")
+    facade.go_to_sleep()
+
+    c1, c2 = HomeConfiguration.instance(), HomeConfiguration.instance()
+    print("Singleton OK:", c1 is c2)
+
+
+if __name__ == "__main__":
+    main()
