@@ -25,5 +25,5 @@
 1. Factory che giấu quyết định *tạo lớp cụ thể nào* từ chuỗi loại thiết bị.
 2. Singleton đảm bảo chỉ có một thể hiện duy nhất; rủi ro: trạng thái toàn cục, phụ thuộc ngầm, khó test.
 3. Factory nhằm *tạo đối tượng*; Facade nhằm *đơn giản hóa việc dùng* nhiều đối tượng qua một giao diện.
-4. Không có Facade, client phải biết thiết bị nào cần thao tác, thứ tự các bước, cửa cần `lock()`, và phải tự đọc `NightLightLevel` từ cấu hình.
+4. Không có Facade, client phải biết thiết bị nào cần thao tác, thứ tự các bước, cửa cần `Lock()`, và phải tự đọc `NightLightLevel` từ cấu hình.
 
