@@ -13,10 +13,10 @@
 ## Phân tích (Phần A, C, D)
 
 - Abstraction chung: `IDevice`; hành vi riêng của cửa: `ILockable`; thành phần tạo thiết bị: `DeviceFactory`.
-- Dữ liệu thuộc cấu hình chung: `home_name`, `night_light_level`.
+- Dữ liệu thuộc cấu hình chung: `HomeName`, `NightLightLevel`.
 - Facade giữ: `light`, `fan` (IDevice), `door` (ILockable) và đọc `HomeConfiguration`.
 - Factory che giấu gì? Việc chọn lớp cụ thể. Thêm `SmartCamera`: tạo lớp mới + thêm 1 dòng vào `_registry` (+ sửa Facade nếu cần chế độ dùng camera).
-- Constructor Singleton: private (trong Python dùng quy ước, truy cập qua `instance()`); `sealed` ngăn kế thừa làm sinh ra thể hiện thứ hai (Python không có `sealed`, dùng quy ước/`__init_subclass__`).
+- Constructor Singleton: private; `sealed` ngăn kế thừa làm sinh ra thể hiện thứ hai.
 - Singleton khó test vì trạng thái toàn cục tồn tại giữa các test và khó thay bằng mock.
 - Có DI `AddSingleton` thì không bắt buộc tự cài Singleton: container quản lý vòng đời, dễ thay thế khi test.
 
