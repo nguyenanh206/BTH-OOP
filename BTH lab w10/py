@@ -9,81 +9,75 @@ from threading import Lock
 # INTERFACE - MÔ HÌNH THIẾT BỊ
 # ---------------------------------------------------------------------------
 class IDevice(ABC):
-
-    #Bật thiết bị
     @abstractmethod
-    def TurnOn(self):
+    def turn_on(self):
         pass
 
-    #Tắt thiết bị
     @abstractmethod
-    def TurnOff(self):
+    def turn_off(self):
         pass
 
-#Khả năng riêng của cửa: khóa / mở khóa 
+
 class ILockable(ABC):
-
-    #Khoá
     @abstractmethod
-    def Lock(self):
+    def lock(self):
         pass
 
-    # MỞ khoá
     @abstractmethod
-    def Unlock(self):
+    def unlock(self):
         pass
 
-#Đèn thông minh
+
+# ---------------------------------------------------------------------------
+# CÁC LỚP THIẾT BỊ CỤ THỂ
+# ---------------------------------------------------------------------------
 class SmartLight(IDevice):
-
     def __init__(self, name: str):
         self.name = name 
         self.is_on = False
 
-    def TurnOn(self):
+    def turn_on(self):
         self.is_on = True
         print(f"{self.name}: ON")
 
-    def TurnOff(self):
+    def turn_off(self):
         self.is_on = False
         print(f"{self.name}: OFF")
 
-#Quạt thông minh
-class SmartFan(IDevice):
 
+class SmartFan(IDevice):
     def __init__(self, name: str):
         self.name = name
         self.is_on = False
 
-    def TurnOn(self):
+    def turn_on(self):
         self.is_on = True
         print(f"{self.name}: ON")
 
-    def TurnOff(self) -> None:
+    def turn_off(self) -> None:
         self.is_on = False
         print(f"{self.name}: OFF")
 
-#Cửa thông minh
-class SmartDoor(IDevice, ILockable):
 
+class SmartDoor(IDevice, ILockable):
     def __init__(self, name: str):
         self.name = name
         self.is_on = False
         self.is_locked = False
 
-    def TurnOn(self):
+    def turn_on(self):
         self.is_on = True
         print(f"{self.name}: ON")
 
-    def TurnOff(self):
+    def turn_off(self):
         self.is_on = False
         print(f"{self.name}: OFF")
 
-    def Lock(self):
+    def lock(self):
         self.is_locked = True
         print(f"{self.name}: LOCKED")
 
-    def Unlock(self):
+    def unlock(self):
         self.is_locked = False
         print(f"{self.name}: UNLOCKED")
 
@@ -91,8 +85,6 @@ class SmartDoor(IDevice, ILockable):
 # ---------------------------------------------------------------------------
 # FACTORY PATTERN
 # ---------------------------------------------------------------------------
-
-#client chỉ làm việc với IDevice
 class DeviceFactory:
     _registry = {
         "light": SmartLight,
@@ -101,25 +93,18 @@ class DeviceFactory:
     }
 
     @staticmethod
-    def create(devicetype: str, name: str) -> IDevice:
-
-        key = devicetype.strip().lower()
+    def create(device_type: str, name: str) -> IDevice:
+        key = device_type.strip().lower()
         cls = DeviceFactory._registry.get(key)
         if cls is None:
-            raise ValueError(f"Unsupported device type: {devicetype}")
+            raise ValueError(f"Unsupported device type: {device_type}")
         return cls(name)
-
-class ArgumentExcetion(Exception):
-    pass
 
 
 # ---------------------------------------------------------------------------
 # SINGLETON PATTERN
 # ---------------------------------------------------------------------------
-
 class HomeConfiguration:
-# Cấu hình chung của ngôi nhà chỉ có một thể hiện duy nhất
-
     _instance = None
     _lock = Lock()
 
@@ -127,53 +112,52 @@ class HomeConfiguration:
         with cls._lock:
             if cls._instance is None:
                 cls._instance = super(HomeConfiguration, cls).__new__(cls)
-                cls._instance._HomeName = "My Home"
-                cls._instance._NightLightLevel = 30
+                cls._instance._home_name = "My Home"
+                cls._instance._night_light_level = 30
         return cls._instance
 
     @property
-    def HomeName(self) -> str:
-        return self._HomeName
+    def home_name(self) -> str:
+        return self._home_name
 
-    @HomeName.setter
-    def HomeName(self, value: str):
-        self._HomeName = value
+    @home_name.setter
+    def home_name(self, value: str):
+        self._home_name = value
 
     @property
-    def NightLightLevel(self) -> int:
-        return self._NightLightLevel
+    def night_light_level(self) -> int:
+        return self._night_light_level
 
-    @NightLightLevel.setter
-    def NightLightLevel(self, value: int):
-        self._NightLightLevel = value
+    @night_light_level.setter
+    def night_light_level(self, value: int):
+        self._night_light_level = value
 
 
 # ---------------------------------------------------------------------------
-# FACADE
+# FACADE PATTERN
 # ---------------------------------------------------------------------------
 class SmartHomeFacade:
-
     def __init__(self, light: IDevice, fan: IDevice, door: ILockable):
-        # Chỉ phụ thuộc abstraction, không phụ thuộc lớp cụ thể
         self._light = light
         self._fan = fan
         self._door = door
 
-    def GoToWork(self) -> None:
-        self._light.TurnOff()
-        self._fan.TurnOff()
-        self._door.Lock()
+    def go_to_work(self) -> None:
+        self._light.turn_off()
+        self._fan.turn_off()
+        self._door.lock()
 
-    def GoToSleep(self) -> None:
-        self._fan.TurnOff()
-        self._door.Lock()
-        self._light.TurnOn()
-        level = HomeConfiguration.instance().NightLightLevel
+    def go_to_sleep(self) -> None:
+        self._fan.turn_off()
+        self._door.lock()
+        self._light.turn_on()
+        # Gọi Singleton trực tiếp qua constructor hoặc định nghĩa classmethod instance()
+        level = HomeConfiguration().night_light_level
         print(f"Night light level: {level}%")
 
 
 # ---------------------------------------------------------------------------
-# Chương trình demo
+# CHƯƠNG TRÌNH DEMO (MAIN)
 # ---------------------------------------------------------------------------
 def main() -> None:
     light = DeviceFactory.create("light", "Living room light")
@@ -181,13 +165,15 @@ def main() -> None:
     door = DeviceFactory.create("door", "Main door")
 
     facade = SmartHomeFacade(light, fan, door)
+    
     print("--- GoToWork ---")
     facade.go_to_work()
-    print("--- GoToSleep ---")
+    
+    print("\n--- GoToSleep ---")
     facade.go_to_sleep()
 
-    c1, c2 = HomeConfiguration.instance(), HomeConfiguration.instance()
-    print("Singleton OK:", c1 is c2)
+    c1, c2 = HomeConfiguration(), HomeConfiguration()
+    print("\nSingleton OK:", c1 is c2)
 
 
 if __name__ == "__main__":
