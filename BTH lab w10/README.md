@@ -6,7 +6,7 @@
 |---|---|---|
 | Factory | `DeviceFactory.create` | Client không gọi constructor cụ thể, chỉ biết `IDevice` |
 | Singleton | `HomeConfiguration.instance()` | Một cấu hình dùng chung, nhất quán toàn ứng dụng |
-| Facade | `SmartHomeFacade` | Gọi `go_to_work()` / `go_to_sleep()` thay vì từng thiết bị |
+| Facade | `SmartHomeFacade` | Gọi `GoToWork()` / `GoToSleep()` thay vì từng thiết bị |
 
 **Hạn chế:** Facade gắn cứng 3 thiết bị (đèn, quạt, cửa) và `HomeConfiguration` là trạng thái toàn cục nên khó unit test, khó mở rộng (thêm camera phải sửa Facade).
 
