@@ -1,7 +1,5 @@
-/****************/
-B21DCCN001
-Nguyen Van A
-/****************/
+# Họ và tên : Nguyễn Hà Anh
+# MSSV: 20241883
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
