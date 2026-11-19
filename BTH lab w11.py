@@ -63,7 +63,7 @@ class SmokeSensorAdapter(ISensor):
 # ==================== 3. MEDIATOR PATTERN ====================
 class IEmergencyMediator(ABC):
     @abstractmethod
-    def notify(self, sender: object, event_code: str):
+    def notify(self, sender: object, eventCode: str):
         pass
 
 #Điều khiển còi báo động
@@ -119,55 +119,51 @@ class DashboardObserver(IAlertObserver):
 
 #Mô phỏng gửi email cảnh báo khi có sự cố
 class EmailAlertObserver(IAlertObserver):
-    def update(self, alert_event: AlertEvent):
-        print(f"[EMAIL ALERT] Gửi mail cảnh báo tới ban quản lý -> Cảm biến: {alert_event.sensor_name} | Mức: {alert_event.severity} | Giá trị: {alert_event.value:.1f}{alert_event.unit}")
+    def update(self, alertEvent: AlertEvent):
+        print(f"[EMAIL ALERT] Gửi mail cảnh báo tới ban quản lý -> Cảm biến: {alertEvent.SensorName} | Mức: {alertEvent.Severity} | Giá trị: {alertEvent.Value:.1f}{alertEvent.Unit}")
 
-
+#Ghi nhận lịch sử cảnh báo
 class AuditLogObserver(IAlertObserver):
-    """Ghi nhận lịch sử cảnh báo[cite: 37, 38]."""
     def __init__(self):
         self._logs: List[str] = []
 
     @property
-    def logs(self) -> List[str]:
+    def Logs(self) -> List[str]:
         return list(self._logs)
 
-    def update(self, alert_event: AlertEvent):
-        entry = f"{alert_event.occurred_at.strftime('%Y-%m-%d %H:%M:%S')} | {alert_event.sensor_name} | {alert_event.value:.1f}{alert_event.unit} | {alert_event.severity}"
+    def Update(self, alertEvent: AlertEvent):
+        entry = f"{alertEvent.OccurredAt.strftime('%Y-%m-%d %H:%M:%S')} | {alertEvent.SensorName} | {alertEvent.Value:.1f}{alertEvent.Unit} | {alertEvent.Severity}"
         self._logs.append(entry)
         print(f"[AUDIT LOG] Đã lưu log: {entry}")
 
-
+#Cầu nối chuyển cảnh báo CRITICAL thành sự kiện cho EmergencyMediator
 class EmergencyBridgeObserver(IAlertObserver):
-    """Cầu nối chuyển cảnh báo CRITICAL thành sự kiện cho EmergencyMediator[cite: 37, 38]."""
     def __init__(self, mediator: IEmergencyMediator):
         self._mediator = mediator
 
-    def update(self, alert_event: AlertEvent):
-        if alert_event.severity == "CRITICAL":
+    def Update(self, alertEvent: AlertEvent):
+        if alertEvent.Severity == "CRITICAL":
             self._mediator.notify(self, "FIRE_DETECTED")
 
-
+#Quản lý observer, đọc sensor, so ngưỡng và phát cảnh báo
 class SensorMonitor:
-    """Quản lý observer, đọc sensor, so ngưỡng và phát cảnh báo[cite: 38, 40]."""
     def __init__(self):
         self._observers: List[IAlertObserver] = []
 
-    def attach(self, observer: IAlertObserver):
+    def Attach(self, observer: IAlertObserver):
         if observer is None:
-            raise ValueError("Observer không được null[cite: 40].")
-        # Không cho cùng một observer đăng ký hai lần[cite: 40, 41]
+            raise ValueError("Observer không được null")
         if observer not in self._observers:
             self._observers.append(observer)
 
-    def detach(self, observer: IAlertObserver):
+    def Detach(self, observer: IAlertObserver):
         if observer in self._observers:
             self._observers.remove(observer)
 
-    def check_sensor(self, sensor_name: str, sensor: ISensor):
-        value = sensor.read_value()
+    def CheckSensor(self, sensorName: str, sensor: ISensor):
+        value = sensor.ReadValue()
 
-        # Quy ước mức độ: < 50% bình thường, 50%..70% WARNING, >= 70% CRITICAL[cite: 38, 40]
+        #< 50% bình thường, 50%..70% WARNING, >= 70% CRITICAL
         severity: Optional[str] = None
         if value >= 70.0:
             severity = "CRITICAL"
@@ -175,75 +171,73 @@ class SensorMonitor:
             severity = "WARNING"
 
         if severity is None:
-            print(f"[MONITOR] {sensor_name}: {value:.1f}{sensor.get_unit()} -> Bình thường (không cảnh báo)[cite: 38].")
+            print(f"[MONITOR] {sensorName}: {value:.1f}{sensor.GetUnit()} -> Bình thường (không cảnh báo)")
             return
 
-        alert_event = AlertEvent(
-            sensor_name=sensor_name,
-            value=value,
-            unit=sensor.get_unit(),
-            severity=severity,
-            occurred_at=datetime.datetime.now()
+        alertEvent = AlertEvent(
+            sensorName = sensorName,
+            value = value,
+            unit = sensor.GetUnit(),
+            severity = severity,
+            occurredAt = datetime.datetime.now()
         )
-        self._notify(alert_event)
+        self._notify(alertEvent)
 
-    def _notify(self, alert_event: AlertEvent):
-        # Duyệt trên bản sao danh sách để an toàn khi observer bị gỡ trong lúc thông báo[cite: 40, 41]
+    def _Notify(self, alertEvent: AlertEvent):
         for observer in list(self._observers):
             try:
-                observer.update(alert_event)
+                observer.Update(alertEvent)
             except Exception as ex:
-                # Một observer lỗi không làm ảnh hưởng tới các observer khác[cite: 41]
                 print(f"[ERROR] Lỗi khi thông báo tới {type(observer).__name__}: {ex}")
 
 
-# ==================== 5. CHƯƠNG TRÌNH KIỂM THỬ (MAIN) ====================
+# ==================== 5. TEST ====================
 if __name__ == "__main__":
     print("=== BẮT ĐẦU MÔ PHỎNG CAMPUS SAFETY HUB ===")
 
-    # 1. Khởi tạo cảm biến cũ và Adapter[cite: 39]
-    legacy_detector = LegacySmokeDetector(350)  # 350 -> 35.0% (Bình thường)
-    smoke_sensor: ISensor = SmokeSensorAdapter(legacy_detector)
-    print(f"Kiểm tra Adapter ban đầu: {smoke_sensor.read_value():.1f} {smoke_sensor.get_unit()}")
+    # 1. Khởi tạo cảm biến cũ và Adapter
+    legacyDetector = LegacySmokeDetector(350)  # 350 -> 35.0% (Bình thường)
+    smokeSensor: ISensor = SmokeSensorAdapter(legacyDetector)
+    print(f"Kiểm tra Adapter ban đầu: {smokeSensor.ReadValue():.1f} {smokeSensor.GetUnit()}")
 
-    # 2. Khởi tạo hệ thống ứng phó khẩn cấp (Mediator)[cite: 37, 38]
+    # 2. Khởi tạo hệ thống ứng phó khẩn cấp (Mediator)
     alarm = Alarm()
-    door_ctrl = DoorController()
-    vent_ctrl = VentilationController()
-    mediator = EmergencyMediator(alarm, door_ctrl, vent_ctrl)
+    doorCtrl = DoorController()
+    ventCtrl = VentilationController()
+    mediator = EmergencyMediator(alarm, doorCtrl, ventCtrl)
 
-    # 3. Khởi tạo Monitor và đăng ký các Observer[cite: 37, 38, 40]
+    # 3. Khởi tạo Monitor và đăng ký các Observer
     monitor = SensorMonitor()
     dashboard = DashboardObserver()
-    email_alert = EmailAlertObserver()
-    audit_log = AuditLogObserver()
+    emailAlert = EmailAlertObserver()
+    auditLog = AuditLogObserver()
     bridge = EmergencyBridgeObserver(mediator)
 
-    monitor.attach(dashboard)
-    monitor.attach(email_alert)
-    monitor.attach(audit_log)
-    monitor.attach(bridge)
-    # Thử đăng ký trùng lặp (sẽ bị bỏ qua nhờ kiểm tra trong attach)[cite: 40, 41]
-    monitor.attach(dashboard)
+    monitor.Attach(dashboard)
+    monitor.Attach(emailAlert)
+    monitor.Attach(auditLog)
+    monitor.Attach(bridge)
+    # Thử đăng ký trùng lặp 
+    monitor.Attach(dashboard)
 
-    # Kịch bản 1: Mức khói bình thường (< 50%)[cite: 38]
+    # Kịch bản 1: Mức khói bình thường (< 50%)
     print("\n--- Kịch bản 1: Cảm biến mức khói bình thường (35%) ---")
-    monitor.check_sensor("SmokeSensor-Lab1", smoke_sensor)
+    monitor.CheckSensor("SmokeSensor-Lab1", smokeSensor)
 
-    # Kịch bản 2: Mức khói cảnh báo WARNING (50% <= val < 70%)[cite: 38]
+    # Kịch bản 2: Mức khói cảnh báo WARNING (50% <= val < 70%)
     print("\n--- Kịch bản 2: Cảm biến tăng lên mức WARNING (58.5%) ---")
-    legacy_detector.set_smoke_level(585)
-    monitor.check_sensor("SmokeSensor-Lab1", smoke_sensor)
+    legacyDetector.SetSmokeLevel(585)
+    monitor.CheckSensor("SmokeSensor-Lab1", smokeSensor)
 
-    # Kịch bản 3: Mức khói nguy hiểm CRITICAL (>= 70%) -> Kích hoạt Mediator[cite: 38]
+    # Kịch bản 3: Mức khói nguy hiểm CRITICAL (>= 70%) -> Kích hoạt Mediator
     print("\n--- Kịch bản 3: Cảm biến tăng lên mức CRITICAL (82.0%) ---")
-    legacy_detector.set_smoke_level(820)
-    monitor.check_sensor("SmokeSensor-Lab1", smoke_sensor)
+    legacyDetector.SetSmokeLevel(820)
+    monitor.CheckSensor("SmokeSensor-Lab1", smokeSensor)
 
-    # Kịch bản 4: Hủy đăng ký EmailAlertObserver và kiểm tra lại[cite: 41]
+    # Kịch bản 4: Hủy đăng ký EmailAlertObserver và kiểm tra lại
     print("\n--- Kịch bản 4: Hủy đăng ký EmailAlertObserver và kiểm tra lại ---")
-    monitor.detach(email_alert)
-    legacy_detector.set_smoke_level(750)  # 75.0% CRITICAL
-    monitor.check_sensor("SmokeSensor-Lab1", smoke_sensor)
+    monitor.detach(emailAlert)
+    legacyDetector.SetSmokeLevel(750)  # 75.0% CRITICAL
+    monitor.CheckSensor("SmokeSensor-Lab1", smokeSensor)
 
     print("\n=== KẾT THÚC MÔ PHỎNG ===")
