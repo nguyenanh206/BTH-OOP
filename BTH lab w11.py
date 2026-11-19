@@ -9,124 +9,116 @@ from typing import List, Optional
 
 # ==================== 1. GIAO DIỆN CẢM BIẾN & DỮ LIỆU CẢNH BÁO ====================
 class ISensor(ABC):
-    """Giao diện chuẩn mà module giám sát sử dụng[cite: 38]."""
     @abstractmethod
-    def read_value(self) -> float:
+    def ReadValue(self) -> float:
         pass
 
     @abstractmethod
-    def get_unit(self) -> str:
+    def GetUnit(self) -> str:
         pass
 
 
 @dataclass(frozen=True)
 class AlertEvent:
-    """Đối tượng dữ liệu bất biến mô tả cảnh báo[cite: 38]."""
-    sensor_name: str
-    value: float
-    unit: str
-    severity: str
-    occurred_at: datetime.datetime
+    SensorName: str
+    Value: float
+    Unit: str
+    Severity: str
+    OccurredAt: datetime.datetime
 
 
 # ==================== 2. ADAPTER PATTERN ====================
 class LegacySmokeDetector:
-    """Lớp cảm biến khói cũ có sẵn (thang đo 0..1000), không sửa đổi[cite: 38, 39]."""
-    def __init__(self, smoke_level: int):
-        self._smoke_level = self._clamp(smoke_level, 0, 1000)
+    def __init__(self, smokeLevel: int):
+        self._smokeLevel = self._clamp(smokeLevel, 0, 1000)
 
     @staticmethod
-    def _clamp(val: int, min_val: int, max_val: int) -> int:
-        return max(min_val, min(max_val, val))
+    def _clamp(val: int, minVal: int, maxVal: int) -> int:
+        return max(minVal, min(maxVal, val))
 
-    def get_smoke_level(self) -> int:
-        return self._smoke_level
+    def GetSmokeLevel(self) -> int:
+        return self._smokeLevel
 
-    def get_description(self) -> str:
+    def GetDescription(self) -> str:
         return "Legacy smoke detector"
 
-    def set_smoke_level(self, value: int):
-        self._smoke_level = self._clamp(value, 0, 1000)
+    def SetSmokeLevel(self, value: int):
+        self._smokeLevel = self._clamp(value, 0, 1000)
 
-
+# Chuyển đổi giao diện và thang đo (0..1000 -> 0..100%) của LegacySmokeDetector
 class SmokeSensorAdapter(ISensor):
-    """Chuyển đổi giao diện và thang đo (0..1000 -> 0..100%) của LegacySmokeDetector[cite: 38, 39]."""
     def __init__(self, legacy: LegacySmokeDetector):
         if legacy is None:
-            raise ValueError("LegacySmokeDetector không được null[cite: 39].")
+            raise ValueError("LegacySmokeDetector không được null")
         self._legacy = legacy
 
-    def read_value(self) -> float:
-        # Chuyển đổi thang 0..1000 thành phần trăm 0..100[cite: 39]
-        return self._legacy.get_smoke_level() / 10.0
+    def ReadValue(self) -> float:
+        #Chuyển đổi thang 0..1000 thành phần trăm 0..100
+        return self._legacy.GetSmokeLevel() / 10.0
 
-    def get_unit(self) -> str:
+    def GetUnit(self) -> str:
         return "% smoke"
 
 
 # ==================== 3. MEDIATOR PATTERN ====================
 class IEmergencyMediator(ABC):
-    """Hợp đồng điều phối các thiết bị ứng phó khẩn cấp[cite: 38]."""
     @abstractmethod
     def notify(self, sender: object, event_code: str):
         pass
 
-
+#Điều khiển còi báo động
 class Alarm:
-    def sound_alarm(self):
+    def SoundAlarm(self):
         print("[ALARM] Còi báo động khẩn cấp ĐANG KÊU!")
 
-    def stop_alarm(self):
-        print("[ALARM] Đã tắt còi báo động.")
+    def StopAlarm(self):
+        print("[ALARM] Đã tắt còi báo động")
 
-
+#Điều khiển cửa thoát hiểm
 class DoorController:
-    def unlock_all_doors(self):
+    def UnlockAllDoors(self):
         print("[DOOR] Đã mở khóa tất cả cửa thoát hiểm!")
 
-    def lock_doors(self):
+    def LockDoors(self):
         print("[DOOR] Đã khóa cửa.")
 
-
+#Điều khiển hút khói
 class VentilationController:
-    def start_exhaust(self):
-        print("[VENTILATION] Đã bật quạt thông gió / hút khói khẩn cấp!")
+    def StartExhaust(self):
+        print("[VENTILATION] Đã bật quạt thông gió")
 
     def stop_exhaust(self):
         print("[VENTILATION] Đã tắt quạt hút khói.")
 
-
+# Phối hợp cho Alarm, Door và Ventilation theo sự kiện
 class EmergencyMediator(IEmergencyMediator):
-    """Điều phối phối hợp alarm, door và ventilation mà không để chúng phụ thuộc nhau[cite: 38]."""
-    def __init__(self, alarm: Alarm, door_controller: DoorController, ventilation_controller: VentilationController):
+    def __init__(self, alarm: Alarm, doorController: DoorController, ventilationController: VentilationController):
         self._alarm = alarm
-        self._door = door_controller
-        self._ventilation = ventilation_controller
+        self._door = doorController
+        self._ventilation = ventilationController
 
-    def notify(self, sender: object, event_code: str):
-        if event_code == "FIRE_DETECTED":
+    def notify(self, sender: object, eventCode: str):
+        if eventCode == "FIRE_DETECTED":
             print("\n>>> [MEDIATOR] Tiếp nhận tín hiệu FIRE_DETECTED -> Kích hoạt quy trình khẩn cấp!")
-            self._alarm.sound_alarm()
-            self._door.unlock_all_doors()
-            self._ventilation.start_exhaust()
+            self._alarm.SoundAlarm()
+            self._door.UnlockAllDoors()
+            self._ventilation.StartExhaust()
 
 
 # ==================== 4. OBSERVER PATTERN ====================
+#Hợp đồng nhận cảnh báo
 class IAlertObserver(ABC):
-    """Hợp đồng nhận cảnh báo[cite: 38]."""
     @abstractmethod
-    def update(self, alert_event: AlertEvent):
+    def Update(self, alertEvent: AlertEvent):
         pass
 
-
+# Hiển thị cảnh báo lên bảng điều khiển
 class DashboardObserver(IAlertObserver):
-    """Hiển thị cảnh báo lên bảng điều khiển[cite: 38, 41]."""
-    def update(self, alert_event: AlertEvent):
-        print(f"[DASHBOARD] {alert_event.sensor_name}: {alert_event.value:.1f}{alert_event.unit} [{alert_event.severity}]")
+    def Update(self, alertEvent: AlertEvent):
+        print(f"[DASHBOARD] {alertEvent.SensorName}: {alertEvent.Value:.1f}{alertEvent.Unit} [{alertEvent.Severity}]")
 
-
+#Mô phỏng gửi email cảnh báo khi có sự cố
 class EmailAlertObserver(IAlertObserver):
-    """Mô phỏng gửi email cảnh báo khi có sự cố[cite: 37, 38]."""
     def update(self, alert_event: AlertEvent):
         print(f"[EMAIL ALERT] Gửi mail cảnh báo tới ban quản lý -> Cảm biến: {alert_event.sensor_name} | Mức: {alert_event.severity} | Giá trị: {alert_event.value:.1f}{alert_event.unit}")
 
