@@ -87,7 +87,7 @@ class VentilationController:
     def StartExhaust(self):
         print("[VENTILATION] Đã bật quạt thông gió")
 
-    def stop_exhaust(self):
+    def StopExhaust(self):
         print("[VENTILATION] Đã tắt quạt hút khói.")
 
 # Phối hợp cho Alarm, Door và Ventilation theo sự kiện
@@ -119,7 +119,7 @@ class DashboardObserver(IAlertObserver):
 
 #Mô phỏng gửi email cảnh báo khi có sự cố
 class EmailAlertObserver(IAlertObserver):
-    def update(self, alertEvent: AlertEvent):
+    def Update(self, alertEvent: AlertEvent):
         print(f"[EMAIL ALERT] Gửi mail cảnh báo tới ban quản lý -> Cảm biến: {alertEvent.SensorName} | Mức: {alertEvent.Severity} | Giá trị: {alertEvent.Value:.1f}{alertEvent.Unit}")
 
 #Ghi nhận lịch sử cảnh báo
@@ -175,13 +175,13 @@ class SensorMonitor:
             return
 
         alertEvent = AlertEvent(
-            sensorName = sensorName,
-            value = value,
-            unit = sensor.GetUnit(),
-            severity = severity,
-            occurredAt = datetime.datetime.now()
+            SensorName = sensorName,
+            Value = value,
+            Unit = sensor.GetUnit(),
+            Severity = severity,
+            OccurredAt = datetime.datetime.now()
         )
-        self._notify(alertEvent)
+        self._Notify(alertEvent)
 
     def _Notify(self, alertEvent: AlertEvent):
         for observer in list(self._observers):
@@ -236,7 +236,7 @@ if __name__ == "__main__":
 
     # Kịch bản 4: Hủy đăng ký EmailAlertObserver và kiểm tra lại
     print("\n--- Kịch bản 4: Hủy đăng ký EmailAlertObserver và kiểm tra lại ---")
-    monitor.detach(emailAlert)
+    monitor.Detach(emailAlert)
     legacyDetector.SetSmokeLevel(750)  # 75.0% CRITICAL
     monitor.CheckSensor("SmokeSensor-Lab1", smokeSensor)
 
